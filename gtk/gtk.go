@@ -499,8 +499,10 @@ func (v *Bin) Native() *C.GtkBin {
 	return C.toGtkBin(p)
 }
 
-func wrapBin(obj *glib.Object) (*Bin) {
-	return &Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapBin(obj *glib.Object) (b *Bin) {
+	b = new(Bin)
+	b.Container = *wrapContainer(obj)
+	return
 }
 
 // GetChild() is a wrapper around gtk_bin_get_child().
@@ -514,6 +516,28 @@ func (v *Bin) GetChild() (*Widget, error) {
 	obj.RefSink()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
 	return w, nil
+}
+
+/*
+ * GtkBuildable
+ */
+
+// Buildable is a representation of GTK's GtkBuildable GInterface.
+type Buildable struct {
+	buildable_obj *glib.Object
+}
+
+func (b *Buildable) Native() *C.GtkBuildable {
+	if b == nil || b.buildable_obj == nil {
+		fmt.Println("nil object, not getting native buildable")
+		return nil
+	}
+	p := unsafe.Pointer(b.buildable_obj.GObject)
+	return C.toGtkBuildable(p)
+}
+
+func (b *Buildable) GetBuildableName() string {
+	return C.GoString((*C.char)(C.gtk_buildable_get_name(b.Native())))
 }
 
 /*
@@ -634,8 +658,10 @@ func (v *Button) Native() *C.GtkButton {
 	return C.toGtkButton(p)
 }
 
-func wrapButton(obj *glib.Object) (*Button) {
-	return &Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapButton(obj *glib.Object) (b *Button) {
+	b = new(Button)
+	b.Bin = *wrapBin(obj)
+	return b
 }
 
 // ButtonNew() is a wrapper around gtk_button_new().
@@ -845,8 +871,10 @@ func (v *Box) Native() *C.GtkBox {
 	return C.toGtkBox(p)
 }
 
-func wrapBox(obj *glib.Object) (*Box) {
-	return &Box{Container{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapBox(obj *glib.Object) (b *Box) {
+	b = new(Box)
+	b.Container = *wrapContainer(obj)
+	return
 }
 
 // BoxNew() is a wrapper around gtk_box_new().
@@ -942,10 +970,6 @@ func (v *CellLayout) Native() *C.GtkCellLayout {
 	}
 	p := unsafe.Pointer(v.GObject)
 	return C.toGtkCellLayout(p)
-}
-
-func wrapCellLayout(obj *glib.Object) (*CellLayout) {
-	return &CellLayout{obj}
 }
 
 func (v *CellLayout) toCellLayout() *C.GtkCellLayout {
@@ -1113,7 +1137,7 @@ type ComboBox struct {
 	Bin
 
 	// Interfaces
-	CellLayout
+	*CellLayout
 }
 
 // Native() returns a pointer to the underlying GtkComboBox.
@@ -1132,9 +1156,11 @@ func (v *ComboBox) toCellLayout() *C.GtkCellLayout {
 	return C.toGtkCellLayout(unsafe.Pointer(v.GObject))
 }
 
-func wrapComboBox(obj *glib.Object) (*ComboBox) {
-	cl := wrapCellLayout(obj)
-	return &ComboBox{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}, *cl}
+func wrapComboBox(obj *glib.Object) (c *ComboBox) {
+	c = new(ComboBox)
+	c.Bin = *wrapBin(obj)
+	c.CellLayout = &CellLayout{obj}
+	return
 }
 
 // ComboBoxNew() is a wrapper around gtk_combo_box_new().
@@ -1205,8 +1231,10 @@ func (v *Container) Native() *C.GtkContainer {
 	return C.toGtkContainer(p)
 }
 
-func wrapContainer(obj *glib.Object) (*Container) {
-	return &Container{Widget{glib.InitiallyUnowned{obj}}}
+func wrapContainer(obj *glib.Object) (c *Container) {
+	c = new(Container)
+	c.Widget = *wrapWidget(obj)
+	return
 }
 
 // Add() is a wrapper around gtk_container_add().
@@ -1237,8 +1265,10 @@ func (v *Dialog) Native() *C.GtkDialog {
 	return C.toGtkDialog(p)
 }
 
-func wrapDialog(obj *glib.Object) (*Dialog) {
-	return &Dialog{Window{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}}
+func wrapDialog(obj *glib.Object) (d *Dialog) {
+	d = new(Dialog)
+	d.Window = *wrapWindow(obj)
+	return
 }
 
 // DialogNew() is a wrapper around gtk_dialog_new().
@@ -1276,7 +1306,7 @@ func (v *Dialog) AddButton(text string, id ResponseType) (*Button, error) {
 		return nil, nilPtrErr
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
-	b := &Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+	b := wrapButton(obj)
 	obj.RefSink()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
 	return b, nil
@@ -1340,7 +1370,7 @@ func (v *Dialog) GetContentArea() (*Box, error) {
 		return nil, nilPtrErr
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
-	b := &Box{Container{Widget{glib.InitiallyUnowned{obj}}}}
+	b := wrapBox(obj)
 	obj.RefSink()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
 	return b, nil
@@ -1378,8 +1408,10 @@ func (v *Entry) Native() *C.GtkEntry {
 	return C.toGtkEntry(p)
 }
 
-func wrapEntry(obj *glib.Object) (*Entry) {
-	return &Entry{Widget{glib.InitiallyUnowned{obj}}}
+func wrapEntry(obj *glib.Object) (e *Entry) {
+	e = new(Entry)
+	e.Widget = *wrapWidget(obj)
+	return
 }
 
 // EntryNew() is a wrapper around gtk_entry_new().
@@ -2001,7 +2033,7 @@ type Grid struct {
 	Container
 
 	// Interfaces
-	Orientable
+	*Orientable
 }
 
 // Native() returns a pointer to the underlying GtkGrid.
@@ -2020,9 +2052,11 @@ func (v *Grid) toOrientable() *C.GtkOrientable {
 	return C.toGtkOrientable(unsafe.Pointer(v.GObject))
 }
 
-func wrapGrid(obj *glib.Object) (*Grid) {
-	o := wrapOrientable(obj)
-	return &Grid{Container{Widget{glib.InitiallyUnowned{obj}}}, *o}
+func wrapGrid(obj *glib.Object) (g *Grid) {
+	g = new(Grid)
+	g.Orientable = &Orientable{obj}
+	g.Container = *wrapContainer(obj)
+	return
 }
 
 // GridNew() is a wrapper around gtk_grid_new().
@@ -2142,8 +2176,10 @@ func (v *Image) Native() *C.GtkImage {
 	return C.toGtkImage(p)
 }
 
-func wrapImage(obj *glib.Object) (*Image) {
-	return &Image{Misc{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapImage(obj *glib.Object) (i *Image) {
+	i = new(Image)
+	i.Misc = *wrapMisc(obj)
+	return
 }
 
 // ImageNew() is a wrapper around gtk_image_new().
@@ -2370,8 +2406,10 @@ func (v *Label) Native() *C.GtkLabel {
 	return C.toGtkLabel(p)
 }
 
-func wrapLabel(obj *glib.Object) (*Label) {
-	return &Label{Misc{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapLabel(obj *glib.Object) (l *Label) {
+	l = new(Label)
+	l.Misc = *wrapMisc(obj)
+	return
 }
 
 // LabelNew() is a wrapper around gtk_label_new().
@@ -2630,8 +2668,10 @@ func (v *Menu) Native() *C.GtkMenu {
 	return C.toGtkMenu(p)
 }
 
-func wrapMenu(obj *glib.Object) (*Menu) {
-	return &Menu{MenuShell{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapMenu(obj *glib.Object) (m *Menu) {
+	m = new(Menu)
+	m.MenuShell = *wrapMenuShell(obj)
+	return
 }
 
 // MenuNew() is a wrapper around gtk_menu_new().
@@ -2665,8 +2705,10 @@ func (v *MenuBar) Native() *C.GtkMenuBar {
 	return C.toGtkMenuBar(p)
 }
 
-func wrapMenuBar(obj *glib.Object) (*MenuBar) {
-	return &MenuBar{MenuShell{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapMenuBar(obj *glib.Object) (m *MenuBar) {
+	m = new(MenuBar)
+	m.MenuShell = *wrapMenuShell(obj)
+	return
 }
 
 // MenuBarNew() is a wrapper around gtk_menu_bar_new().
@@ -2700,8 +2742,10 @@ func (v *MenuItem) Native() *C.GtkMenuItem {
 	return C.toGtkMenuItem(p)
 }
 
-func wrapMenuItem(obj *glib.Object) (*MenuItem) {
-	return &MenuItem{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapMenuItem(obj *glib.Object) (m *MenuItem) {
+	m = new(MenuItem)
+	m.Bin = *wrapBin(obj)
+	return
 }
 
 // MenuItemNew() is a wrapper around gtk_menu_item_new().
@@ -2771,8 +2815,10 @@ func (v *MenuShell) Native() *C.GtkMenuShell {
 	return C.toGtkMenuShell(p)
 }
 
-func wrapMenuShell(obj *glib.Object) (*MenuShell) {
-	return &MenuShell{Container{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapMenuShell(obj *glib.Object) (m *MenuShell) {
+	m = new(MenuShell)
+	m.Container = *wrapContainer(obj)
+	return
 }
 
 // Append() is a wrapper around gtk_menu_shell_append().
@@ -2798,8 +2844,10 @@ func (v *MessageDialog) Native() *C.GtkMessageDialog {
 	return C.toGtkMessageDialog(p)
 }
 
-func wrapMessageDialog(obj *glib.Object) (*MessageDialog) {
-	return &MessageDialog{Dialog{Window{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}}}
+func wrapMessageDialog(obj *glib.Object) (m *MessageDialog) {
+	m = new(MessageDialog)
+	m.Dialog = *wrapDialog(obj)
+	return
 }
 
 // MessageDialogNew() is a wrapper around gtk_message_dialog_new().
@@ -2841,8 +2889,10 @@ func (v *Misc) Native() *C.GtkMisc {
 	return C.toGtkMisc(p)
 }
 
-func wrapMisc(obj *glib.Object) (*Misc) {
-	return &Misc{Widget{glib.InitiallyUnowned{obj}}}
+func wrapMisc(obj *glib.Object) (m *Misc) {
+	m = new(Misc)
+	m.Widget = *wrapWidget(obj)
+	return
 }
 
 /*
@@ -2863,8 +2913,10 @@ func (v *Notebook) Native() *C.GtkNotebook {
 	return C.toGtkNotebook(p)
 }
 
-func wrapNotebook(obj *glib.Object) (*Notebook) {
-	return &Notebook{Container{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapNotebook(obj *glib.Object) (n *Notebook) {
+	n = new(Notebook)
+	n.Container = *wrapContainer(obj)
+	return
 }
 
 // NotebookNew() is a wrapper around gtk_notebook_new().
@@ -3191,10 +3243,6 @@ func (v *Orientable) Native() *C.GtkOrientable {
 	return C.toGtkOrientable(p)
 }
 
-func wrapOrientable(obj *glib.Object) (*Orientable) {
-	return &Orientable{obj}
-}
-
 // GetOrientation() is a wrapper around gtk_orientable_get_orientation().
 func (v *Orientable) GetOrientation() Orientation {
 	c := C.gtk_orientable_get_orientation(v.Native())
@@ -3225,8 +3273,10 @@ func (v *ProgressBar) Native() *C.GtkProgressBar {
 	return C.toGtkProgressBar(p)
 }
 
-func wrapProgressBar(obj *glib.Object) (*ProgressBar) {
-	return &ProgressBar{Widget{glib.InitiallyUnowned{obj}}}
+func wrapProgressBar(obj *glib.Object) (p *ProgressBar) {
+	p = new(ProgressBar)
+	p.Widget = *wrapWidget(obj)
+	return
 }
 
 // ProgressBarNew() is a wrapper around gtk_progress_bar_new().
@@ -3278,8 +3328,10 @@ func (v *ScrolledWindow) Native() *C.GtkScrolledWindow {
 	return C.toGtkScrolledWindow(p)
 }
 
-func wrapScrolledWindow(obj *glib.Object) (*ScrolledWindow) {
-	return &ScrolledWindow{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapScrolledWindow(obj *glib.Object) (s *ScrolledWindow) {
+	s = new(ScrolledWindow)
+	s.Bin = *wrapBin(obj)
+	return
 }
 
 // ScrolledWindowNew() is a wrapper around gtk_scrolled_window_new().
@@ -3321,8 +3373,10 @@ func (v *SpinButton) Native() *C.GtkSpinButton {
 	return C.toGtkSpinButton(p)
 }
 
-func wrapSpinButton(obj *glib.Object) (*SpinButton) {
-	return &SpinButton{Entry{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapSpinButton(obj *glib.Object) (s *SpinButton) {
+	s = new(SpinButton)
+	s.Entry = *wrapEntry(obj)
+	return
 }
 
 // Configure() is a wrapper around gtk_spin_button_configure().
@@ -3390,8 +3444,10 @@ func (v *Statusbar) Native() *C.GtkStatusbar {
 	return C.toGtkStatusbar(p)
 }
 
-func wrapStatusbar(obj *glib.Object) (*Statusbar) {
-	return &Statusbar{Box{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapStatusbar(obj *glib.Object) (s *Statusbar) {
+	s = new(Statusbar)
+	s.Box = *wrapBox(obj)
+	return
 }
 
 // StatusbarNew() is a wrapper around gtk_statusbar_new().
@@ -3436,7 +3492,7 @@ func (v *Statusbar) GetMessageArea() (*Box, error) {
 		return nil, nilPtrErr
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
-	return &Box{Container{Widget{glib.InitiallyUnowned{obj}}}}, nil
+	return wrapBox(obj), nil
 }
 
 /*
@@ -3663,8 +3719,10 @@ func (v *TreeView) Native() *C.GtkTreeView {
 	return C.toGtkTreeView(p)
 }
 
-func wrapTreeView(obj *glib.Object) (*TreeView) {
-	return &TreeView{Container{Widget{glib.InitiallyUnowned{obj}}}}
+func wrapTreeView(obj *glib.Object) (t *TreeView) {
+	t = new(TreeView)
+	t.Container = *wrapContainer(obj)
+	return
 }
 
 // TreeViewNew() is a wrapper around gtk_tree_view_new().
@@ -3822,6 +3880,9 @@ func (v *TreeViewColumn) GetMinWidth() int {
 // Widget is a representation of GTK's GtkWidget.
 type Widget struct {
 	glib.InitiallyUnowned
+
+	// Interfaces
+	*Buildable
 }
 
 // IWidget is an interface type implemented by all structs
@@ -3848,8 +3909,11 @@ func (v *Widget) toWidget() *C.GtkWidget {
 	return v.Native()
 }
 
-func wrapWidget(obj *glib.Object) (*Widget) {
-	return &Widget{glib.InitiallyUnowned{obj}}
+func wrapWidget(obj *glib.Object) (w *Widget) {
+	w = new(Widget)
+	w.InitiallyUnowned = glib.InitiallyUnowned{obj}
+	w.Buildable = &Buildable{obj}
+	return
 }
 
 // Destroy() is a wrapper around gtk_widget_destroy().
@@ -4235,8 +4299,10 @@ func (v *Window) toWindow() *C.GtkWindow {
 	return v.Native()
 }
 
-func wrapWindow(obj *glib.Object) *Window {
-	return &Window{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}
+func wrapWindow(obj *glib.Object) (w *Window) {
+	w = new(Window)
+	w.Bin = *wrapBin(obj)
+	return
 }
 
 // WindowNew() is a wrapper around gtk_window_new().
@@ -4315,8 +4381,6 @@ func cast(c *C.GObject) (glib.IObject, error) {
 		g = wrapBox(obj)
 	case "GtkButton":
 		g = wrapButton(obj)
-	case "GtkCellLayout":
-		g = wrapCellLayout(obj)
 	case "GtkCellRenderer":
 		g = wrapCellRenderer(obj)
 	case "GtkCellRendererText":

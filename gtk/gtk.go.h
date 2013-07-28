@@ -242,6 +242,12 @@ toGtkBuilder(void *p)
 	return (GTK_BUILDER(p));
 }
 
+static GtkBuildable *
+toGtkBuildable(void *p)
+{
+	return (GTK_BUILDABLE(p));
+}
+
 static GType * 
 alloc_types(int n) {
 	return ((GType *)g_new0(GType, n));
