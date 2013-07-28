@@ -149,6 +149,11 @@ func (c *CallbackContext) Data() interface{} {
 	return c.data.Interface()
 }
 
+// NArgs() returns the number of arguments passed to the callback function.
+func (c *CallbackContext) NArgs() int {
+	return int((*C.cbinfo)(c.cbi).nargs)
+}
+
 // Arg() returns the nth argument passed to the callback function.
 func (c *CallbackContext) Arg(n int) CallbackArg {
 	return CallbackArg(C.cbinfo_get_arg((*C.cbinfo)(c.cbi), C.int(n)))
