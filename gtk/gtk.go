@@ -55,8 +55,8 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"github.com/conformal/gotk3/gdk"
-	"github.com/conformal/gotk3/glib"
+	"github.com/dradtke/gotk3/gdk"
+	"github.com/dradtke/gotk3/glib"
 	"runtime"
 	"unsafe"
 )
@@ -2389,6 +2389,30 @@ func (v *Image) GetPixelSize() int {
 }
 
 /*
+ * GtkImageMenuItem
+ */
+
+// ImageMenuItem is a representation of GTK's GtkImageMenuItem.
+type ImageMenuItem struct {
+	MenuItem
+}
+
+// Native() returns a pointer to the underlying GtkImageMenuItem.
+func (v *ImageMenuItem) Native() *C.GtkImageMenuItem {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkImageMenuItem(p)
+}
+
+func wrapImageMenuItem(obj *glib.Object) (m *ImageMenuItem) {
+	m = new(ImageMenuItem)
+	m.MenuItem = *wrapMenuItem(obj)
+	return
+}
+
+/*
  * GtkLabel
  */
 
@@ -3218,6 +3242,30 @@ func (v *Notebook) GetActionWidget(packType PackType) (*Widget, error) {
 }
 
 /*
+ * GtkOffscreenWindow
+ */
+
+// OffscreenWindow is a representation of GTK's GtkOffscreenWindow.
+type OffscreenWindow struct {
+	Bin
+}
+
+// Native() returns a pointer to the underlying GtkWindow.
+func (v *OffscreenWindow) Native() *C.GtkOffscreenWindow {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkOffscreenWindow(p)
+}
+
+func wrapOffscreenWindow(obj *glib.Object) (o *OffscreenWindow) {
+	o = new(OffscreenWindow)
+	o.Bin = *wrapBin(obj)
+	return
+}
+
+/*
  * GtkOrientable
  */
 
@@ -3493,6 +3541,84 @@ func (v *Statusbar) GetMessageArea() (*Box, error) {
 	}
 	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
 	return wrapBox(obj), nil
+}
+
+/*
+ * GtkTextBuffer
+ */
+// TextBuffer is a representation of GTK's GtkTextBuffer.
+type TextBuffer struct {
+	*glib.Object
+}
+
+func (t *TextBuffer) Native() *C.GtkTextBuffer {
+	if t == nil || t.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(t.GObject)
+	return C.toGtkTextBuffer(p)
+}
+
+func (t *TextBuffer) Insert(iter *TextIter, text string) {
+	cstr := C.CString(text)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_text_buffer_insert(t.Native(), iter.c, (*C.gchar)(cstr), C.gint(len(text)))
+}
+
+func (t *TextBuffer) GetIterAtOffset(offset int) *TextIter {
+	var c C.GtkTextIter
+	C.gtk_text_buffer_get_iter_at_offset(t.Native(), &c, C.gint(offset))
+	iter := &TextIter{&c}
+	//runtime.SetFinalizer(iter, freeTextIter)
+	return iter
+}
+
+func (t *TextBuffer) SetText(text string) {
+	cstr := C.CString(text)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_text_buffer_set_text(t.Native(), (*C.gchar)(cstr), C.gint(len(text)))
+}
+
+/*
+ * GtkTextIter
+ */
+// TextIter is a representation of GTK's GtkTextIter.
+type TextIter struct {
+	c *C.GtkTextIter
+}
+
+/*
+ * GtkTextView
+ */
+// TextView is a representation of GTK's GtkTextView.
+type TextView struct {
+	Container
+}
+
+func (t *TextView) Native() *C.GtkTextView {
+	if t == nil || t.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(t.GObject)
+	return C.toGtkTextView(p)
+}
+
+func wrapTextView(obj *glib.Object) (t *TextView) {
+	t = new(TextView)
+	t.Container = *wrapContainer(obj)
+	return
+}
+
+func (t *TextView) GetBuffer() (*TextBuffer, error) {
+	c := C.gtk_text_view_get_buffer(t.Native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	buffer := &TextBuffer{obj}
+	obj.RefSink()
+	runtime.SetFinalizer(obj, (*glib.Object).Unref)
+	return buffer, nil
 }
 
 /*
@@ -4403,6 +4529,8 @@ func cast(c *C.GObject) (glib.IObject, error) {
 		g = wrapGrid(obj)
 	case "GtkImage":
 		g = wrapImage(obj)
+	case "GtkImageMenuItem":
+		g = wrapImageMenuItem(obj)
 	case "GtkLabel":
 		g = wrapLabel(obj)
 	case "GtkListStore":
@@ -4421,8 +4549,8 @@ func cast(c *C.GObject) (glib.IObject, error) {
 		g = wrapMisc(obj)
 	case "GtkNotebook":
 		g = wrapNotebook(obj)
-	case "GtkOrientable":
-		g = wrapOrientable(obj)
+	case "GtkOffscreenWindow":
+		g = wrapOffscreenWindow(obj)
 	case "GtkProgressBar":
 		g = wrapProgressBar(obj)
 	case "GtkScrolledWindow":
@@ -4431,6 +4559,8 @@ func cast(c *C.GObject) (glib.IObject, error) {
 		g = wrapSpinButton(obj)
 	case "GtkStatusbar":
 		g = wrapStatusbar(obj)
+	case "GtkTextView":
+		g = wrapTextView(obj)
 	case "GtkTreeModel":
 		g = wrapTreeModel(obj)
 	case "GtkTreeSelection":

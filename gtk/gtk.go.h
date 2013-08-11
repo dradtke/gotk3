@@ -50,6 +50,12 @@ toGtkBin(void *p)
 	return (GTK_BIN(p));
 }
 
+static GtkOffscreenWindow *
+toGtkOffscreenWindow(void *p)
+{
+	return (GTK_OFFSCREEN_WINDOW(p));
+}
+
 static GtkWindow *
 toGtkWindow(void *p)
 {
@@ -128,6 +134,12 @@ toGtkScrolledWindow(void *p)
 	return (GTK_SCROLLED_WINDOW(p));
 }
 
+static GtkImageMenuItem *
+toGtkImageMenuItem(void *p)
+{
+	return (GTK_IMAGE_MENU_ITEM(p));
+}
+
 static GtkMenuItem *
 toGtkMenuItem(void *p)
 {
@@ -168,6 +180,18 @@ static GtkListStore *
 toGtkListStore(void *p)
 {
 	return (GTK_LIST_STORE(p));
+}
+
+static GtkTextBuffer *
+toGtkTextBuffer(void *p)
+{
+	return (GTK_TEXT_BUFFER(p));
+}
+
+static GtkTextView *
+toGtkTextView(void *p)
+{
+	return (GTK_TEXT_VIEW(p));
 }
 
 static GtkTreeModel *
