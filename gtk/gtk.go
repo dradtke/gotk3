@@ -4107,6 +4107,10 @@ func (v *Widget) GetNoShowAll() bool {
 	return gobool(c)
 }
 
+func (v *Widget) HideOnDelete() bool {
+	return gobool(C.gtk_widget_hide_on_delete(v.Native()))
+}
+
 // Map() is a wrapper around gtk_widget_map().
 func (v *Widget) Map() {
 	C.gtk_widget_map(v.Native())
