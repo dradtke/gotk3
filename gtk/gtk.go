@@ -981,6 +981,10 @@ func (v *CellLayout) Native() *C.GtkCellLayout {
 	return C.toGtkCellLayout(p)
 }
 
+func wrapCellLayout(obj *glib.Object) (*CellLayout) {
+	return &CellLayout{obj}
+}
+
 func (v *CellLayout) toCellLayout() *C.GtkCellLayout {
 	if v == nil {
 		return nil
@@ -3360,6 +3364,10 @@ func (v *Orientable) Native() *C.GtkOrientable {
 	return C.toGtkOrientable(p)
 }
 
+func wrapOrientable(obj *glib.Object) (*Orientable) {
+	return &Orientable{obj}
+}
+
 // GetOrientation() is a wrapper around gtk_orientable_get_orientation().
 func (v *Orientable) GetOrientation() Orientation {
 	c := C.gtk_orientable_get_orientation(v.Native())
@@ -3535,6 +3543,11 @@ func SpinButtonNewWithRange(min, max, step float64) (*SpinButton, error) {
 func (v *SpinButton) GetValueAsInt() int {
 	c := C.gtk_spin_button_get_value_as_int(v.Native())
 	return int(c)
+}
+
+// SetValue() is a wrapper around gtk_spin_button_set_value().
+func (v *SpinButton) SetValue(value float64) {
+	C.gtk_spin_button_set_value(v.Native(), C.gdouble(value))
 }
 
 // GetValue() is a wrapper around gtk_spin_button_get_value().
@@ -4560,7 +4573,11 @@ func (v *Window) SetPosition(position WindowPosition) {
 
 // SetTransientFor() is a wrapper around gtk_window_set_transient_for().
 func (v *Window) SetTransientFor(parent IWindow) {
-	C.gtk_window_set_transient_for(v.Native(), parent.toWindow())
+	var pw *C.GtkWindow = nil
+	if parent != nil {
+		pw = parent.toWindow()
+	}
+	C.gtk_window_set_transient_for(v.Native(), pw)
 }
 
 // cast() takes a native GObject and casts it to the appropriate Go struct.

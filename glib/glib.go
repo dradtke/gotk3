@@ -300,6 +300,7 @@ func GetUserSpecialDir(directory UserDirectory) (string, error) {
 // require GObjects or any subclasses thereof.
 type IObject interface {
 	toGObject() *C.GObject
+	ToObject() *Object
 }
 
 // Object is a representation of GLib's GObject.
@@ -314,6 +315,10 @@ func (v *Object) Native() *C.GObject {
 	}
 	p := unsafe.Pointer(v.GObject)
 	return C.toGObject(p)
+}
+
+func (v *Object) ToObject() *Object {
+	return v
 }
 
 func (v *Object) toGObject() *C.GObject {
