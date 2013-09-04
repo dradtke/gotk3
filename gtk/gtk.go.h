@@ -272,6 +272,18 @@ toGtkBuildable(void *p)
 	return (GTK_BUILDABLE(p));
 }
 
+static GtkFileChooser *
+toGtkFileChooser(void *p)
+{
+	return (GTK_FILE_CHOOSER(p));
+}
+
+static GtkFileChooserButton *
+toGtkFileChooserButton(void *p)
+{
+	return (GTK_FILE_CHOOSER_BUTTON(p));
+}
+
 static GType * 
 alloc_types(int n) {
 	return ((GType *)g_new0(GType, n));

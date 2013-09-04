@@ -71,6 +71,7 @@ func gbool(b bool) C.gboolean {
 	}
 	return C.gboolean(0)
 }
+
 func gobool(b C.gboolean) bool {
 	if b != 0 {
 		return true
@@ -2030,6 +2031,66 @@ func (v *EntryCompletion) Native() *C.GtkEntryCompletion {
 
 func wrapEntryCompletion(obj *glib.Object) (*EntryCompletion) {
 	return &EntryCompletion{obj}
+}
+
+/*
+ * GtkFileChooser
+ */
+
+// FileChooser is a representation of GTK's GtkFileChooser GInterface.
+type FileChooser struct {
+	filechooser_obj *glib.Object
+}
+
+func (f *FileChooser) Native() *C.GtkFileChooser {
+	if f == nil || f.filechooser_obj == nil {
+		fmt.Println("nil object, not getting native file chooser")
+		return nil
+	}
+	p := unsafe.Pointer(f.filechooser_obj.GObject)
+	return C.toGtkFileChooser(p)
+}
+
+func (f *FileChooser) SetCurrentFolder(filename string) {
+	cstr := C.CString(filename)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_file_chooser_set_filename(f.Native(), cstr)
+}
+
+func (f *FileChooser) GetFilename() string {
+	c := C.gtk_file_chooser_get_filename(f.Native())
+	if c == nil {
+		return ""
+	}
+	defer C.free(unsafe.Pointer(c))
+	str := C.GoString((*C.char)(c))
+	return str
+}
+
+/*
+ * GtkFileChooserButton
+ */
+type FileChooserButton struct {
+	Box
+
+	// Interfaces
+	*FileChooser
+}
+
+// Native() returns a pointer to the underlying GtkGrid.
+func (b *FileChooserButton) Native() *C.GtkFileChooserButton {
+	if b == nil || b.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(b.GObject)
+	return C.toGtkFileChooserButton(p)
+}
+
+func wrapFileChooserButton(obj *glib.Object) (b *FileChooserButton) {
+	b = new(FileChooserButton)
+	b.FileChooser = &FileChooser{obj}
+	b.Box = *wrapBox(obj)
+	return
 }
 
 /*
@@ -4537,6 +4598,8 @@ func cast(c *C.GObject) (glib.IObject, error) {
 		g = wrapEntryBuffer(obj)
 	case "GtkEntryCompletion":
 		g = wrapEntryCompletion(obj)
+	case "GtkFileChooserButton":
+		g = wrapFileChooserButton(obj)
 	case "GtkGrid":
 		g = wrapGrid(obj)
 	case "GtkImage":
