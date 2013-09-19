@@ -102,10 +102,10 @@ type Device struct {
 
 // Native() returns a pointer to the underlying GdkDevice
 func (v *Device) Native() *C.GdkDevice {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.Ptr() == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
+	p := v.Ptr()
 	return C.toGdkDevice(p)
 }
 
@@ -120,10 +120,10 @@ type DeviceManager struct {
 
 // Native() returns a pointer to the underlying GdkDeviceManager.
 func (v *DeviceManager) Native() *C.GdkDeviceManager {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.Ptr() == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
+	p := v.Ptr()
 	return C.toGdkDeviceManager(p)
 }
 
@@ -138,10 +138,10 @@ type Display struct {
 
 // Native() returns a pointer to the underlying GdkDisplay.
 func (v *Display) Native() *C.GdkDisplay {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.Ptr() == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
+	p := v.Ptr()
 	return C.toGdkDisplay(p)
 }
 
@@ -153,7 +153,7 @@ func DisplayOpen(displayName string) (*Display, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	d := &Display{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -166,7 +166,7 @@ func DisplayGetDefault() (*Display, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	d := &Display{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -194,7 +194,7 @@ func (v *Display) GetScreen(screenNum int) (*Screen, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	s := &Screen{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -207,7 +207,7 @@ func (v *Display) GetDefaultScreen() (*Screen, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	s := &Screen{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -220,7 +220,7 @@ func (v *Display) GetDeviceManager() (*DeviceManager, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	d := &DeviceManager{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -333,7 +333,7 @@ func (v *Display) GetDefaultGroup() (*Window, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := &glib.Object{glib.ToGObject(unsafe.Pointer(c))}
+	obj := glib.ObjectNew(unsafe.Pointer(c))
 	w := &Window{obj}
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
@@ -427,10 +427,10 @@ type Screen struct {
 
 // Native() returns a pointer to the underlying GdkScreen.
 func (v *Screen) Native() *C.GdkScreen {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.Ptr() == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
+	p := v.Ptr()
 	return C.toGdkScreen(p)
 }
 
@@ -445,9 +445,9 @@ type Window struct {
 
 // Native() returns a pointer to the underlying GdkWindow.
 func (v *Window) Native() *C.GdkWindow {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.Ptr() == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
+	p := v.Ptr()
 	return C.toGdkWindow(p)
 }

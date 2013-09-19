@@ -19,13 +19,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-/* GObject Type Casting */
-static GObject *
-toGObject(void *p)
-{
-	return (G_OBJECT(p));
-}
-
 static GType
 _g_type_from_instance(gpointer instance)
 {

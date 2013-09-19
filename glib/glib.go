@@ -305,16 +305,23 @@ type IObject interface {
 
 // Object is a representation of GLib's GObject.
 type Object struct {
-	GObject *C.GObject
+	ptr unsafe.Pointer
+}
+
+func ObjectNew(p unsafe.Pointer) *Object {
+	return &Object{p}
+}
+
+func (v *Object) Ptr() unsafe.Pointer {
+	return v.ptr
 }
 
 // Native() returns a pointer to the underlying GObject.
 func (v *Object) Native() *C.GObject {
-	if v == nil || v.GObject == nil {
+	if v == nil || v.ptr == nil {
 		return nil
 	}
-	p := unsafe.Pointer(v.GObject)
-	return C.toGObject(p)
+	return (*C.GObject)(v.ptr)
 }
 
 func (v *Object) ToObject() *Object {
@@ -329,7 +336,7 @@ func (v *Object) toGObject() *C.GObject {
 }
 
 func (v *Object) typeFromInstance() Type {
-	c := C._g_type_from_instance(C.gpointer(unsafe.Pointer(v.Native())))
+	c := C._g_type_from_instance(C.gpointer(v.ptr))
 	return Type(c)
 }
 
@@ -337,40 +344,40 @@ func (v *Object) typeFromInstance() Type {
 // This function is exported for visibility in other gotk3 packages and
 // is not meant to be used by applications.
 func ToGObject(p unsafe.Pointer) *C.GObject {
-	return C.toGObject(p)
+	return (*C.GObject)(p)
 }
 
 // Ref() is a wrapper around g_object_ref().
 func (v *Object) Ref() {
-	C.g_object_ref(C.gpointer(v.GObject))
+	C.g_object_ref(C.gpointer(v.ptr))
 }
 
 // Unref() is a wrapper around g_object_unref().
 func (v *Object) Unref() {
-	C.g_object_unref(C.gpointer(v.GObject))
+	C.g_object_unref(C.gpointer(v.ptr))
 }
 
 // RefSink() is a wrapper around g_object_ref_sink().
 func (v *Object) RefSink() {
-	C.g_object_ref_sink(C.gpointer(v.GObject))
+	C.g_object_ref_sink(C.gpointer(v.ptr))
 }
 
 // IsFloating() is a wrapper around g_object_is_floating().
 func (v *Object) IsFloating() bool {
-	c := C.g_object_is_floating(C.gpointer(v.GObject))
+	c := C.g_object_is_floating(C.gpointer(v.ptr))
 	return gobool(c)
 }
 
 // ForceFloating() is a wrapper around g_object_force_floating().
 func (v *Object) ForceFloating() {
-	C.g_object_force_floating(v.GObject)
+	C.g_object_force_floating((*C.GObject)(v.ptr))
 }
 
 // StopEmission() is a wrapper around g_signal_stop_emission_by_name().
 func (v *Object) StopEmission(s string) {
 	cstr := C.CString(s)
 	defer C.free(unsafe.Pointer(cstr))
-	C.g_signal_stop_emission_by_name((C.gpointer)(v.GObject),
+	C.g_signal_stop_emission_by_name(C.gpointer(v.ptr),
 		(*C.gchar)(cstr))
 }
 
@@ -380,7 +387,7 @@ func (v *Object) connectCtx(ctx *CallbackContext, s string) int {
 	callbackContexts.RLock()
 	nCbCtxs := len(callbackContexts.s)
 	callbackContexts.RUnlock()
-	ctx.cbi = unsafe.Pointer(C._g_signal_connect(unsafe.Pointer(v.GObject),
+	ctx.cbi = unsafe.Pointer(C._g_signal_connect(v.ptr,
 		(*C.gchar)(cstr), C.int(nCbCtxs)))
 	callbackContexts.Lock()
 	callbackContexts.s = append(callbackContexts.s, ctx)
@@ -421,7 +428,7 @@ func (v *Object) Set(name string, value interface{}) error {
 	defer C.free(unsafe.Pointer(cstr))
 
 	if _, ok := value.(Object); ok {
-		value = value.(Object).GObject
+		value = value.(Object).ptr
 	}
 
 	var p unsafe.Pointer = nil
@@ -491,7 +498,7 @@ func (v *Object) Set(name string, value interface{}) error {
 	// Can't call g_object_set() as it uses a variable arg list, use a
 	// wrapper instead
 	if p != nil {
-		C._g_object_set_one(C.gpointer(v.GObject), (*C.gchar)(cstr), p)
+		C._g_object_set_one(C.gpointer(v.ptr), (*C.gchar)(cstr), p)
 		return nil
 	} else {
 		return errors.New("Unable to perform type conversion")
@@ -549,7 +556,7 @@ func (v *Object) HandlerBlock(callID int) {
 	callbackContexts.RLock()
 	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
 	callbackContexts.RUnlock()
-	C.g_signal_handler_block((C.gpointer)(v.GObject), id)
+	C.g_signal_handler_block(C.gpointer(v.ptr), id)
 }
 
 // HandlerUnblock() is a wrapper around g_signal_handler_unblock().
@@ -557,7 +564,7 @@ func (v *Object) HandlerUnblock(callID int) {
 	callbackContexts.RLock()
 	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
 	callbackContexts.RUnlock()
-	C.g_signal_handler_unblock((C.gpointer)(v.GObject), id)
+	C.g_signal_handler_unblock(C.gpointer(v.ptr), id)
 }
 
 // HandlerDisconnect() is a wrapper around g_signal_handler_disconnect().
@@ -565,7 +572,7 @@ func (v *Object) HandlerDisconnect(callID int) {
 	callbackContexts.RLock()
 	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
 	callbackContexts.RUnlock()
-	C.g_signal_handler_disconnect((C.gpointer)(v.GObject), id)
+	C.g_signal_handler_disconnect(C.gpointer(v.ptr), id)
 }
 
 /*
@@ -728,7 +735,7 @@ func GValue(v interface{}) (gvalue *Value, err error) {
 			if err != nil {
 				return nil, err
 			}
-			val.SetInstance(uintptr(unsafe.Pointer(obj.GObject)))
+			val.SetInstance(uintptr(obj.ptr))
 			return val, nil
 		}
 
