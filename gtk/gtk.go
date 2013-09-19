@@ -2586,6 +2586,9 @@ type ListStore struct {
 
 	// Interfaces
 	TreeModel
+
+	// other useful data
+	indexMap map[string]int
 }
 
 // Native() returns a pointer to the underlying GtkListStore.
@@ -2596,9 +2599,10 @@ func (v *ListStore) Native() *C.GtkListStore {
 	return (*C.GtkListStore)(v.Ptr())
 }
 
-func wrapListStore(obj *glib.Object) ListStore {
-	tm := wrapTreeModel(obj)
-	return ListStore{obj, tm}
+func wrapListStore(obj *glib.Object) (l ListStore) {
+	l.TreeModel = wrapTreeModel(obj)
+	l.Object = obj
+	return
 }
 
 func (v *ListStore) toTreeModel() *C.GtkTreeModel {
@@ -2609,18 +2613,23 @@ func (v *ListStore) toTreeModel() *C.GtkTreeModel {
 }
 
 // ListStoreNew() is a wrapper around gtk_list_store_newv().
-func ListStoreNew(types ...glib.Type) (*ListStore, error) {
-	gtypes := C.alloc_types(C.int(len(types)))
-	for n, val := range types {
+func ListStoreNew(columns map[string]glib.Type) (*ListStore, error) {
+	gtypes := C.alloc_types(C.int(len(columns)))
+	indexMap := make(map[string]int)
+	n := 0
+	for name, val := range columns {
 		C.set_type(gtypes, C.int(n), C.GType(val))
+		indexMap[name] = n
+		n++
 	}
 	defer C.g_free(C.gpointer(gtypes))
-	c := C.gtk_list_store_newv(C.gint(len(types)), gtypes)
+	c := C.gtk_list_store_newv(C.gint(len(columns)), gtypes)
 	if c == nil {
 		return nil, nilPtrErr
 	}
 	obj := glib.ObjectNew(unsafe.Pointer(c))
 	ls := wrapListStore(obj)
+	ls.indexMap = indexMap
 	obj.Ref()
 	runtime.SetFinalizer(obj, (*glib.Object).Unref)
 	return &ls, nil
@@ -2632,53 +2641,68 @@ func (v *ListStore) SetColumnTypes(types ...glib.Type) {
 }
 */
 
-// Set() is a wrapper around gtk_list_store_set_value() but provides
-// a function similar to gtk_list_store_set() in that multiple columns
-// may be set by one call.  The length of columns and values slices must
-// match, or Set() will return a non-nil error.
-//
-// As an example, a call to:
-//  store.Set(iter, []int{0, 1}, []interface{}{"Foo", "Bar"})
-// is functionally equivalent to calling the native C GTK function:
-//  gtk_list_store_set(store, iter, 0, "Foo", 1, "Bar", -1);
-func (v *ListStore) Set(iter *TreeIter, columns []int, values []interface{}) error {
-	if len(columns) != len(values) {
-		return errors.New("columns and values lengths do not match")
-	}
-	for i, val := range values {
-		if gv, err := glib.GValue(val); err != nil {
-			return err
-		} else {
-			C.gtk_list_store_set_value(v.Native(), iter.Native(),
-				C.gint(columns[i]),
-				(*C.GValue)(unsafe.Pointer(gv.Native())))
-		}
-	}
-	return nil
-}
-
-// TODO(me)
-/*
-func (v *ListStore) InsertWithValues(iter *TreeIter, position int, columns []int, values []interface{}) error {
-	if len(columns) != len(values) {
-		return errors.New("columns and values lengths do not match")
-	}
-	n := len(columns)
-	ccolumns := make([]*C.gint, n)
+// Set() is a wrapper around gtk_list_store_set_valuesv()
+func (v *ListStore) Set(iter *TreeIter, values map[string]interface{}) error {
+	n := len(values)
+	i := 0
+	ccolumns := make([]C.gint, n)
 	cvalues := make([]*C.GValue, n)
-	for i := 0; i < n; i++ {
-		v, err := glib.GValue(values[i])
+	for key, val := range values {
+		index, ok := v.indexMap[key]
+		if !ok {
+			return fmt.Errorf("unrecognized key: '%s'", key)
+		}
+		v, err := glib.GValue(val)
 		if err != nil {
 			return err
 		}
-		ccolumns[i] = C.gint(columns[i])
-		cvalues[i] = v
+		ccolumns[i] = C.gint(index)
+		// for some reason, this cast is necessary since GValue is defined in the glib package
+		cvalues[i] = (*C.GValue)(unsafe.Pointer(v.Native()))
+		i++
 	}
-
-	// TODO: implement this helper function, using C macros to expand the call
-	//C._gtk_list_store_insert(v.Native(), iter.Native(), C.gint(position), ccolumns, cvalues, C.gint(n))
+	var (
+		cn = C.gint(n)
+		ccols = (*C.gint)(unsafe.Pointer(&ccolumns))
+		cvals = (*C.GValue)(unsafe.Pointer(&cvalues))
+	)
+	C.gtk_list_store_set_valuesv(v.Native(), iter.Native(), ccols, cvals, cn)
+	return nil
 }
-*/
+
+// InsertWithValues() is a wrapper around gtk_list_store_insert_with_valuesv()
+func (v *ListStore) InsertWithValues(iter *TreeIter, position int, values map[string]interface{}) (*TreeIter, error) {
+	n := len(values)
+	i := 0
+	ccolumns := make([]C.gint, n)
+	cvalues := make([]*C.GValue, n)
+	for key, val := range values {
+		index, ok := v.indexMap[key]
+		if !ok {
+			return nil, fmt.Errorf("unrecognized key: '%s'", key)
+		}
+		v, err := glib.GValue(val)
+		if err != nil {
+			return nil, err
+		}
+		ccolumns[i] = C.gint(index)
+		// for some reason, this cast is necessary since GValue is defined in the glib package
+		cvalues[i] = (*C.GValue)(unsafe.Pointer(v.Native()))
+		i++
+	}
+	var (
+		citer *C.GtkTreeIter = nil
+		cpos = C.gint(position)
+		cn = C.gint(n)
+		ccols = (*C.gint)(unsafe.Pointer(&ccolumns))
+		cvals = (*C.GValue)(unsafe.Pointer(&cvalues))
+	)
+	C.gtk_list_store_insert_with_valuesv(v.Native(), citer, cpos, ccols, cvals, cn)
+	if citer == nil {
+		return nil, nilPtrErr
+	}
+	return &TreeIter{*citer}, nil
+}
 
 // Prepend() is a wrapper around gtk_list_store_prepend().
 func (v *ListStore) Prepend(iter *TreeIter) {
