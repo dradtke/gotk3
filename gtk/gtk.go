@@ -2586,9 +2586,6 @@ type ListStore struct {
 
 	// Interfaces
 	TreeModel
-
-	// other useful data
-	indexMap map[string]int
 }
 
 // Native() returns a pointer to the underlying GtkListStore.
@@ -2610,6 +2607,10 @@ func (v *ListStore) toTreeModel() *C.GtkTreeModel {
 		return nil
 	}
 	return (*C.GtkTreeModel)(v.Ptr())
+}
+
+func (v *ListStore) ColumnIndex(name string) int {
+	return v.indexMap[name]
 }
 
 // ListStoreNew() is a wrapper around gtk_list_store_newv().
@@ -2671,11 +2672,11 @@ func (v *ListStore) Set(iter *TreeIter, values map[string]interface{}) error {
 }
 
 // InsertWithValues() is a wrapper around gtk_list_store_insert_with_valuesv()
-func (v *ListStore) InsertWithValues(iter *TreeIter, position int, values map[string]interface{}) (*TreeIter, error) {
+func (v *ListStore) InsertWithValues(position int, values map[string]interface{}) (*TreeIter, error) {
 	n := len(values)
 	i := 0
 	ccolumns := make([]C.gint, n)
-	cvalues := make([]*C.GValue, n)
+	cvalues := make([]C.GValue, n)
 	for key, val := range values {
 		index, ok := v.indexMap[key]
 		if !ok {
@@ -2687,21 +2688,21 @@ func (v *ListStore) InsertWithValues(iter *TreeIter, position int, values map[st
 		}
 		ccolumns[i] = C.gint(index)
 		// for some reason, this cast is necessary since GValue is defined in the glib package
-		cvalues[i] = (*C.GValue)(unsafe.Pointer(v.Native()))
+		cvalues[i] = *(*C.GValue)(unsafe.Pointer(v.Native()))
 		i++
 	}
 	var (
-		citer *C.GtkTreeIter = nil
+		citer C.GtkTreeIter
 		cpos = C.gint(position)
 		cn = C.gint(n)
-		ccols = (*C.gint)(unsafe.Pointer(&ccolumns))
-		cvals = (*C.GValue)(unsafe.Pointer(&cvalues))
+		ccols = (*C.gint)(unsafe.Pointer(&ccolumns[0]))
+		cvals = (*C.GValue)(unsafe.Pointer(&cvalues[0]))
 	)
-	C.gtk_list_store_insert_with_valuesv(v.Native(), citer, cpos, ccols, cvals, cn)
-	if citer == nil {
+	C.gtk_list_store_insert_with_valuesv(v.Native(), &citer, cpos, ccols, cvals, cn)
+	if &citer == nil {
 		return nil, nilPtrErr
 	}
-	return &TreeIter{*citer}, nil
+	return &TreeIter{citer}, nil
 }
 
 // Prepend() is a wrapper around gtk_list_store_prepend().
@@ -3713,6 +3714,9 @@ func (v *TreeIter) Copy() (*TreeIter, error) {
 // TreeModel is a representation of GTK's GtkTreeModel GInterface.
 type TreeModel struct {
 	*glib.Object
+
+	// other useful data
+	indexMap map[string]int
 }
 
 // ITreeModel is an interface type implemented by all structs
@@ -3721,6 +3725,7 @@ type TreeModel struct {
 // GtkTreeModel.
 type ITreeModel interface {
 	toTreeModel() *C.GtkTreeModel
+	columnIndex(string) (int, bool)
 }
 
 // Native() returns a pointer to the underlying GObject as a GtkTreeModel.
@@ -3738,8 +3743,14 @@ func (v *TreeModel) toTreeModel() *C.GtkTreeModel {
 	return v.Native()
 }
 
-func wrapTreeModel(obj *glib.Object) TreeModel {
-	return TreeModel{obj}
+func (v *TreeModel) columnIndex(name string) (int, bool) {
+	i, ok := v.indexMap[name]
+	return i, ok
+}
+
+func wrapTreeModel(obj *glib.Object) (t TreeModel) {
+	t.Object = obj
+	return
 }
 
 // GetFlags() is a wrapper around gtk_tree_model_get_flags().
@@ -4000,6 +4011,25 @@ func TreeViewColumnNew() (*TreeViewColumn, error) {
 	return &t, nil
 }
 
+func TreeViewColumnNewWithAttributes(title string, renderer ICellRenderer, model ITreeModel, attributes map[string]string) (*TreeViewColumn, error) {
+	v, err := TreeViewColumnNew()
+	if err != nil {
+		return nil, err
+	}
+	v.SetTitle(title)
+	v.PackStart(renderer, true)
+	for key, value := range attributes {
+		k_cstr := C.CString(key)
+		col, ok := model.columnIndex(value)
+		if !ok {
+			return nil, fmt.Errorf("unknown column '%s'", value)
+		}
+		C._gtk_tree_view_column_set_attribute(v.Native(), renderer.toCellRenderer(), (*C.gchar)(k_cstr), C.gint(col))
+		C.free(unsafe.Pointer(k_cstr))
+	}
+	return v, nil
+}
+
 // TreeViewColumnNewWithAttribute() is a wrapper around
 // gtk_tree_view_column_new_with_attributes() that only sets one
 // attribute for one column.
@@ -4048,6 +4078,16 @@ func (v *TreeViewColumn) SetMinWidth(minWidth int) {
 func (v *TreeViewColumn) GetMinWidth() int {
 	c := C.gtk_tree_view_column_get_min_width(v.Native())
 	return int(c)
+}
+
+func (v *TreeViewColumn) SetTitle(title string) {
+	t_cstr := C.CString(title)
+	defer C.free(unsafe.Pointer(t_cstr))
+	C.gtk_tree_view_column_set_title(v.Native(), (*C.gchar)(t_cstr))
+}
+
+func (v *TreeViewColumn) PackStart(renderer ICellRenderer, expand bool) {
+	C.gtk_tree_view_column_pack_start(v.Native(), renderer.toCellRenderer(), gbool(expand))
 }
 
 /*

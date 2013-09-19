@@ -42,6 +42,14 @@ _gtk_tree_view_column_new_with_attributes_one(const gchar *title,
 	return (tvc);
 }
 
+static void
+_gtk_tree_view_column_set_attribute(GtkTreeViewColumn *tree_column,
+    GtkCellRenderer *cell_renderer, gchar *attr, gint column)
+{
+	gtk_tree_view_column_set_attributes(tree_column, cell_renderer,
+	    attr, column, NULL);
+}
+
 static GtkWidget *
 _gtk_message_dialog_new(GtkWindow *parent, GtkDialogFlags flags,
     GtkMessageType type, GtkButtonsType buttons, char *msg)
