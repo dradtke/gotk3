@@ -35,23 +35,13 @@ import (
 	"unsafe"
 )
 
-var (
-	callbackContexts = struct {
-		sync.RWMutex
-		s []*CallbackContext
-	}{}
-	idleFnContexts = struct {
-		sync.RWMutex
-		s []*idleFnContext
-	}{}
-)
-
 func init() {
 	// call g_type_init() if the version is lower than 2.36
 	c := C.glib_check_version(C.guint(2), C.guint(36), C.guint(0))
 	if c != nil {
 		C.g_type_init()
 	}
+	closures.m = make(map[*C.GClosure]reflect.Value)
 }
 
 /*
@@ -75,7 +65,17 @@ func gobool(b C.gboolean) bool {
  * Unexported vars
  */
 
-var nilPtrErr = errors.New("cgo returned unexpected nil pointer")
+var (
+	nilPtrErr = errors.New("cgo returned unexpected nil pointer")
+	closures = struct {
+		sync.RWMutex
+		m map[*C.GClosure]reflect.Value
+	}{}
+	idleFnContexts = struct {
+		sync.RWMutex
+		s []*idleFnContext
+	}{}
+)
 
 /*
  * Constants
@@ -133,81 +133,61 @@ const USER_N_DIRECTORIES int = C.G_USER_N_DIRECTORIES
  * Events
  */
 
-// CallbackContext is a special type used to represent parameters
-// passed to callback functions.  It is in most cases unneeded, due to
-// Connect() supporting closures.
-type CallbackContext struct {
-	f      interface{}
-	cbi    unsafe.Pointer
-	target reflect.Value
-	data   reflect.Value
+type SignalHandle uint64
+
+// Connect() is a wrapper around g_signal_connect_closure().
+func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
+	cstr := C.CString(detailed_signal)
+	defer C.free(unsafe.Pointer(cstr))
+	closure := C._g_closure_new()
+	closures.Lock()
+	closures.m[closure] = reflect.ValueOf(f)
+	closures.Unlock()
+	c := C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), closure, gbool(false))
+	h := SignalHandle(c)
+	return h
 }
 
-// CallbackArg is a generic type representing individual parameters
-// passed to callback functions.
-type CallbackArg uintptr
-
-// Target() returns the target Object connected to a callback
-// function.  This value should be type asserted as the type of the
-// target.
-func (c *CallbackContext) Target() interface{} {
-	return c.target.Interface()
-}
-
-// Data() returns the optional user data passed to a callback function
-// connected with ConnectWithData().  This value should be type asserted
-// as the type of the data.
-func (c *CallbackContext) Data() interface{} {
-	return c.data.Interface()
-}
-
-// NArgs() returns the number of arguments passed to the callback function.
-func (c *CallbackContext) NArgs() int {
-	return int((*C.cbinfo)(c.cbi).nargs)
-}
-
-// Arg() returns the nth argument passed to the callback function.
-func (c *CallbackContext) Arg(n int) CallbackArg {
-	return CallbackArg(C.cbinfo_get_arg((*C.cbinfo)(c.cbi), C.int(n)))
-}
-
-// String() returns this callback argument as a Go string.  Calling
-// this function results in undefined behavior if the argument for the
-// native C callback function is not a C string.
-func (c CallbackArg) String() string {
-	return C.GoString((*C.char)(unsafe.Pointer(c)))
-}
-
-// Int() returns this callback argument as a Go int.  Calling this
-// function results in undefined behavior if the argument for the native
-// C callback function is not an int.
-func (c CallbackArg) Int() int {
-	return int(C.int(C.uintptr_t(c)))
-}
-
-// UInt() returns this callback argument as a Go uint.  Calling this
-// function results in undefined behavior if the argument for the native
-// C callback function is not an unsigned int.
-func (c CallbackArg) UInt() uint {
-	return uint(C.uint(C.uintptr_t(c)))
-}
-
-//export _go_glib_callback
-func _go_glib_callback(cbi *C.cbinfo) {
-	callbackContexts.RLock()
-	ctx := callbackContexts.s[int(cbi.func_n)]
-	rf := reflect.ValueOf(ctx.f)
-	t := rf.Type()
-	fargs := make([]reflect.Value, t.NumIn())
-	if len(fargs) > 0 {
-		fargs[0] = reflect.ValueOf(ctx)
+// goMarshal() is called by the GLib runtime when a closure needs to be invoked.
+// The closure will be invoked with as many arguments as it can take, from 0 to
+// the full amount provided by the call. If the closure asks for more parameters
+// than there are to give, this method panics.
+//
+//export goMarshal
+func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
+	var (
+		go_params []reflect.Value
+		callback = closures.m[closure]
+		numIn = callback.Type().NumIn()
+		numParams = int(n_param_values)
+		ret []reflect.Value
+	)
+	if numIn == 0 {
+		go_params = make([]reflect.Value, 0)
+		ret = callback.Call(go_params)
+	} else if numIn <= numParams {
+		params := valueSlice(numParams, param_values)
+		go_params = make([]reflect.Value, numIn)
+		for i := 0; i<numIn; i++ {
+			v := &Value{*params[i]}
+			val, err := v.GoValue()
+			if err != nil {
+				panic(err)
+			}
+			go_params[i] = reflect.ValueOf(val)
+		}
+		ret = callback.Call(go_params)
+	} else {
+		panic(fmt.Sprintf("not enough arguments to call closure; it expects %d, but we only have %d", numIn, numParams))
 	}
-	callbackContexts.RUnlock()
-	ret := rf.Call(fargs)
-	if len(ret) > 0 {
-		bret, _ := ret[0].Interface().(bool)
-		cbi.ret = gbool(bret)
+	if return_value != nil && len(ret) > 0 {
+		g, err := GValue(ret[0].Interface())
+		if err != nil {
+			panic(err)
+		}
+		(*return_value) = *g.Native()
 	}
+	// TODO: invalidate the closure and delete from the map if possible
 }
 
 /*
@@ -393,45 +373,6 @@ func (v *Object) StopEmission(s string) {
 		(*C.gchar)(cstr))
 }
 
-func (v *Object) connectCtx(ctx *CallbackContext, s string) int {
-	cstr := C.CString(s)
-	defer C.free(unsafe.Pointer(cstr))
-	callbackContexts.RLock()
-	nCbCtxs := len(callbackContexts.s)
-	callbackContexts.RUnlock()
-	ctx.cbi = unsafe.Pointer(C._g_signal_connect(v.ptr,
-		(*C.gchar)(cstr), C.int(nCbCtxs)))
-	callbackContexts.Lock()
-	callbackContexts.s = append(callbackContexts.s, ctx)
-	callbackContexts.Unlock()
-	return nCbCtxs
-}
-
-// Connect() is a wrapper around g_signal_connect().  Connect()
-// returns an int representing the handler id, and a non-nil error if f
-// is not a function.
-func (v *Object) Connect(s string, f interface{}) (int, error) {
-	rf := reflect.ValueOf(f)
-	if rf.Kind() != reflect.Func {
-		return 0, errors.New("f is not a function")
-	}
-	ctx := &CallbackContext{f, nil, reflect.ValueOf(v),
-		reflect.ValueOf(nil)}
-	return v.connectCtx(ctx, s), nil
-}
-
-// ConnectWithData() is a wrapper around g_signal_connect().  This
-// function differs from Connect() in that it allows passing an
-// additional argument for user data.  This additional argument is
-// usually unneeded since Connect() supports full closures, however, if f
-// was not created with the necessary data in scope, it may be passed in
-// this by connecting with this function.
-func (v *Object) ConnectWithData(s string, f interface{}, data interface{}) int {
-	ctx := &CallbackContext{f, nil, reflect.ValueOf(v),
-		reflect.ValueOf(data)}
-	return v.connectCtx(ctx, s)
-}
-
 // Set() is a wrapper around g_object_set().  However, unlike
 // g_object_set(), this function only sets one name value pair.  Make
 // multiple calls to this function to set multiple properties.
@@ -564,27 +505,18 @@ func (v *Object) Emit(s string, args ...interface{}) (interface{}, error) {
 }
 
 // HandlerBlock() is a wrapper around g_signal_handler_block().
-func (v *Object) HandlerBlock(callID int) {
-	callbackContexts.RLock()
-	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
-	callbackContexts.RUnlock()
-	C.g_signal_handler_block(C.gpointer(v.ptr), id)
+func (v *Object) HandlerBlock(handle SignalHandle) {
+	C.g_signal_handler_block(C.gpointer(v.ptr), C.gulong(handle))
 }
 
 // HandlerUnblock() is a wrapper around g_signal_handler_unblock().
-func (v *Object) HandlerUnblock(callID int) {
-	callbackContexts.RLock()
-	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
-	callbackContexts.RUnlock()
-	C.g_signal_handler_unblock(C.gpointer(v.ptr), id)
+func (v *Object) HandlerUnblock(handle SignalHandle) {
+	C.g_signal_handler_unblock(C.gpointer(v.ptr), C.gulong(handle))
 }
 
 // HandlerDisconnect() is a wrapper around g_signal_handler_disconnect().
-func (v *Object) HandlerDisconnect(callID int) {
-	callbackContexts.RLock()
-	id := C.cbinfo_get_id((*C.cbinfo)(callbackContexts.s[callID].cbi))
-	callbackContexts.RUnlock()
-	C.g_signal_handler_disconnect(C.gpointer(v.ptr), id)
+func (v *Object) HandlerDisconnect(handle SignalHandle) {
+	C.g_signal_handler_disconnect(C.gpointer(v.ptr), C.gulong(handle))
 }
 
 /*
@@ -935,70 +867,5 @@ func valueSlice(n_values int, values *C.GValue) (slice []*C.GValue) {
 	header.Len = n_values
 	header.Data = uintptr(unsafe.Pointer(&values))
 	return
-}
-
-/*
- * Closure support.
- */
-
-var closureMap = make(map[*C.GClosure]reflect.Value)
-
-// ClosureNew() creates a new closure and associates it with the provided callback
-// function. The association is kept in the Go runtime to avoid having to try and
-// wrangle a gpointer back into a Go function whose signature we don't know.
-func ClosureNew(f interface{}) *C.GClosure {
-	c := C._g_closure_new()
-	closureMap[c] = reflect.ValueOf(f)
-	return c
-}
-
-// ConnectClosure() is an alternative to Connect() which utilizes closures.
-// It should eventually replace Connect().
-func (v *Object) ConnectClosure(detailed_signal string, f interface{}) {
-	cstr := C.CString(detailed_signal)
-	defer C.free(unsafe.Pointer(cstr))
-	C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), ClosureNew(f), gbool(false))
-}
-
-// goMarshal() is called by the GLib runtime when a closure needs to be invoked.
-// The closure will be invoked with as many arguments as it can take, from 0 to
-// the full amount provided by the call. If the closure asks for more parameters
-// than there are to give, this method panics.
-//
-//export goMarshal
-func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
-	var (
-		go_params []reflect.Value
-		callback = closureMap[closure]
-		numIn = callback.Type().NumIn()
-		numParams = int(n_param_values)
-		ret []reflect.Value
-	)
-	if numIn == 0 {
-		go_params = make([]reflect.Value, 0)
-		ret = callback.Call(go_params)
-	} else if numIn <= numParams {
-		params := valueSlice(numParams, param_values)
-		go_params = make([]reflect.Value, numIn)
-		for i := 0; i<numIn; i++ {
-			v := &Value{*params[i]}
-			val, err := v.GoValue()
-			if err != nil {
-				panic(err)
-			}
-			go_params[i] = reflect.ValueOf(val)
-		}
-		ret = callback.Call(go_params)
-	} else {
-		panic(fmt.Sprintf("not enough arguments to call closure; it expects %d, but we only have %d", numIn, numParams))
-	}
-	if return_value != nil && len(ret) > 0 {
-		g, err := GValue(ret[0].Interface())
-		if err != nil {
-			panic(err)
-		}
-		(*return_value) = *g.Native()
-	}
-	delete(closureMap, closure)
 }
 
