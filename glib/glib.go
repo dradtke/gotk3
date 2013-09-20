@@ -29,6 +29,7 @@ import "C"
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime"
 	"sync"
@@ -75,10 +76,11 @@ var (
 )
 
 /*
- * closureNew() creates a new GClosure and adds its callback function
- * to the internally-maintained map.
+ * ClosureNew() creates a new GClosure and adds its callback function
+ * to the internally-maintained map. It's exported for visibility to other
+ * gotk3 packages and shouldn't be used in application code.
  */
-func closureNew(f interface{}) *C.GClosure {
+func ClosureNew(f interface{}) *C.GClosure {
 	closure := C._g_closure_new()
 	closures.Lock()
 	closures.m[closure] = reflect.ValueOf(f)
@@ -122,6 +124,14 @@ func (t Type) Name() string {
 	return C.GoString((*C.char)(C.g_type_name(C.GType(t))))
 }
 
+func (t Type) Depth() uint {
+	return uint(C.g_type_depth(C.GType(t)))
+}
+
+func (t Type) Parent() Type {
+	return Type(C.g_type_parent(C.GType(t)))
+}
+
 // UserDirectory is a representation of GLib's GUserDirectory.
 type UserDirectory int
 
@@ -148,7 +158,7 @@ type SignalHandle uint64
 func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
 	cstr := C.CString(detailed_signal)
 	defer C.free(unsafe.Pointer(cstr))
-	closure := closureNew(f)
+	closure := ClosureNew(f)
 	c := C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), closure, gbool(false))
 	h := SignalHandle(c)
 	return h
@@ -161,6 +171,7 @@ func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
 //
 //export goMarshal
 func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
+	fmt.Println("marshaling")
 	var (
 		go_params []reflect.Value
 		callback = closures.m[closure]
@@ -230,7 +241,7 @@ func idleAdd(context *MainContext, f func() bool) (SourceHandle, error) {
 		ctx = (*C.GMainContext)(context.ptr)
 	}
 	var closure *C.GClosure
-	closure = closureNew(func() bool {
+	closure = ClosureNew(func() bool {
 		ok := f()
 		if !ok {
 			C.g_closure_invalidate(closure)
@@ -263,7 +274,7 @@ func MainLoopNew(context *MainContext) (*MainLoop, error) {
 	if context != nil {
 		ctx = (*C.GMainContext)(context.ptr)
 	}
-	c := C.g_main_loop_new(ctx, gbool(true))
+	c := C.g_main_loop_new(ctx, gbool(false))
 	if c == nil {
 		return nil, nilPtrErr
 	}
@@ -607,14 +618,9 @@ func (v *Value) unset() {
 // the g_value_get_gtype() function.  GetType() returns TYPE_INVALID if v
 // does not hold a Type, or otherwise returns the Type of v.
 func (v *Value) GetType() (actual Type, fundamental Type) {
-	/*
-	c := C._g_value_holds_gtype(C.gpointer(unsafe.Pointer(v.Native())))
-	if gobool(c) {
-		c := C.g_value_get_gtype(v.Native())
-		return Type(c)
+	if !gobool(C._g_is_value(v.Native())) {
+		panic("tried to call GetType() on invalid GValue")
 	}
-	return TYPE_INVALID
-	*/
 	c_actual := C._g_value_type(v.Native())
 	c_fundamental := C._g_value_fundamental(c_actual)
 	return Type(c_actual), Type(c_fundamental)
@@ -762,32 +768,40 @@ func GValue(v interface{}) (gvalue *Value, err error) {
 // functions, depending on the type of the Value.
 func (v *Value) GoValue() (interface{}, error) {
 	actual, fundamental := v.GetType()
+	// TODO: verify that all of these cases are indeed fundamental types
 	switch fundamental {
 	case TYPE_INVALID:
 		return nil, errors.New("Invalid type")
 	case TYPE_NONE:
 		return nil, nil
-	case TYPE_BOOLEAN:
-		c := C.g_value_get_boolean(v.Native())
-		return gobool(c), nil
+	case TYPE_INTERFACE:
+		return nil, errors.New("interface conversion not yet implemented")
 	case TYPE_CHAR:
 		c := C.g_value_get_schar(v.Native())
 		return int8(c), nil
 	case TYPE_UCHAR:
 		c := C.g_value_get_uchar(v.Native())
 		return uint8(c), nil
-	case TYPE_INT64:
-		c := C.g_value_get_int64(v.Native())
-		return int64(c), nil
+	case TYPE_BOOLEAN:
+		c := C.g_value_get_boolean(v.Native())
+		return gobool(c), nil
 	case TYPE_INT:
 		c := C.g_value_get_int(v.Native())
 		return int(c), nil
-	case TYPE_UINT64:
-		c := C.g_value_get_uint64(v.Native())
-		return uint64(c), nil
 	case TYPE_UINT:
 		c := C.g_value_get_uint(v.Native())
 		return uint(c), nil
+	case TYPE_LONG, TYPE_INT64: // is int64 the best option for longs?
+		c := C.g_value_get_int64(v.Native())
+		return int64(c), nil
+	case TYPE_ULONG, TYPE_UINT64: // is uint64 the best option for ulongs?
+		c := C.g_value_get_uint64(v.Native())
+		return uint64(c), nil
+	// TODO: enums and flags can probably just be returned as ints
+	case TYPE_ENUM:
+		return nil, errors.New("enum conversion not yet implemented")
+	case TYPE_FLAGS:
+		return nil, errors.New("flag conversion not yet implemented")
 	case TYPE_FLOAT:
 		c := C.g_value_get_float(v.Native())
 		return float32(c), nil
@@ -797,13 +811,25 @@ func (v *Value) GoValue() (interface{}, error) {
 	case TYPE_STRING:
 		c := C.g_value_get_string(v.Native())
 		return C.GoString((*C.char)(c)), nil
+	case TYPE_POINTER:
+		return unsafe.Pointer(v.Native()), nil
+	case TYPE_BOXED:
+		return nil, errors.New("boxed conversion not yet implemented")
+	case TYPE_PARAM:
+		return nil, errors.New("param conversion not yet implemented")
 	case TYPE_OBJECT:
 		c := C.g_value_get_object(v.Native())
 		// TODO: need to try and return an actual pointer to the correct object type
 		// this may require an additional cast()-like method for each module
 		return unsafe.Pointer(c), nil
+	case TYPE_VARIANT:
+		return nil, errors.New("variant conversion not yet implemented")
 	default:
-		return nil, errors.New("Type conversion not supported for type: " + actual.Name())
+		fmt.Fprintln(os.Stderr, "type conversion not supported for unexpected type!")
+		for t := actual; t != 0; t = t.Parent() {
+			fmt.Fprintf(os.Stderr, "\t(%d) %s\n", t, t.Name())
+		}
+		return nil, errors.New("type conversion not supported")
 	}
 }
 

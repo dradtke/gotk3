@@ -66,6 +66,12 @@ _g_value_init(GType g_type)
 	return (g_value_init(value, g_type));
 }
 
+static gboolean
+_g_is_value(GValue *val)
+{
+	return (G_IS_VALUE(val));
+}
+
 static GType
 _g_value_type(GValue *val)
 {

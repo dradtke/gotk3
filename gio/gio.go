@@ -175,4 +175,47 @@ func (v *Application) UnmarkBusy() {
 }
 */
 
+type BusType int
+
+const (
+	BUS_TYPE_STARTER BusType = C.G_BUS_TYPE_STARTER
+	BUS_TYPE_NONE            = C.G_BUS_TYPE_NONE
+	BUS_TYPE_SYSTEM          = C.G_BUS_TYPE_SYSTEM
+	BUS_TYPE_SESSION         = C.G_BUS_TYPE_SESSION
+)
+
+type BusNameOwnerFlags int
+
+const (
+	BUS_NAME_OWNER_FLAGS_NONE              BusNameOwnerFlags = C.G_BUS_NAME_OWNER_FLAGS_NONE
+	BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT                   = C.G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT
+	BUS_NAME_OWNER_FLAGS_REPLACE                             = C.G_BUS_NAME_OWNER_FLAGS_REPLACE
+)
+
 // TODO: add GDBusConnection
+type BusNameHandle uint
+
+func (h BusNameHandle) Unown() {
+	C.g_bus_unown_name(C.guint(h))
+}
+
+type BusCallback func(conn *BusConnection, name string)
+
+// BusOwnName() is a wrapper around g_bus_own_name_with_closures(). One of the following three situations is guaranteed:
+//   * nameLost() is called with a null connection
+//   * busAcquired(), then nameLost() are called
+//   * busAcquired(), then nameAcquired() are called
+// For more information see https://developer.gnome.org/gio/stable/gio-Owning-Bus-Names.html#g-bus-own-name
+func BusOwnName(typ BusType, name string, flags BusNameOwnerFlags, busAcquired BusCallback, nameAcquired BusCallback, nameLost BusCallback) BusNameHandle {
+	cstr := C.CString(name)
+	defer C.free(unsafe.Pointer(cstr))
+	h := C.g_bus_own_name_with_closures(C.GBusType(typ), (*C.gchar)(cstr), C.GBusNameOwnerFlags(flags),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { busAcquired(&BusConnection{ptr}, name) }))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { nameAcquired(&BusConnection{ptr}, name) }))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { nameLost(&BusConnection{ptr}, name) }))))
+	return BusNameHandle(h)
+}
+
+type BusConnection struct {
+	ptr unsafe.Pointer
+}
