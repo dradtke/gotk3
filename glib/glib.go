@@ -71,12 +71,7 @@ var (
 		sync.RWMutex
 		m map[*C.GClosure]reflect.Value
 	}{}
-	/*
-	idleFnContexts = struct {
-		sync.RWMutex
-		s []*idleFnContext
-	}{}
-	*/
+	signals = make(map[SignalHandle]*C.GClosure)
 )
 
 /*
@@ -198,7 +193,6 @@ func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.gui
 		}
 		(*return_value) = *g.Native()
 	}
-	// TODO: invalidate the closure (if need be) and delete from the map if possible
 }
 
 /*
@@ -219,11 +213,14 @@ func (v *Source) Native() *C.GSource {
 	return (*C.GSource)(v.ptr)
 }
 
-func IdleAdd(f interface{}) (SourceHandle, error) {
+// IdleAdd() adds an idle source to the default main context.
+func IdleAdd(f func() bool) (SourceHandle, error) {
 	return idleAdd(nil, f)
 }
 
-func idleAdd(context *MainContext, f interface{}) (SourceHandle, error) {
+// idleAdd() adds an idle source to the provided main context. If the
+// function returns false, then it is invalidated, which should also free it.
+func idleAdd(context *MainContext, f func() bool) (SourceHandle, error) {
 	c := C.g_idle_source_new()
 	if c == nil {
 		return 0, nilPtrErr
@@ -232,7 +229,15 @@ func idleAdd(context *MainContext, f interface{}) (SourceHandle, error) {
 	if context != nil {
 		ctx = (*C.GMainContext)(context.ptr)
 	}
-	C.g_source_set_closure(c, closureNew(f))
+	var closure *C.GClosure
+	closure = closureNew(func() bool {
+		ok := f()
+		if !ok {
+			C.g_closure_invalidate(closure)
+		}
+		return ok
+	})
+	C.g_source_set_closure(c, closure)
 	cid := C.g_source_attach(c, ctx)
 	return SourceHandle(cid), nil
 }
@@ -245,7 +250,7 @@ type MainContext struct {
 	ptr unsafe.Pointer
 }
 
-func (v *MainContext) IdleAdd(f interface{}) (SourceHandle, error) {
+func (v *MainContext) IdleAdd(f func() bool) (SourceHandle, error) {
 	return idleAdd(v, f)
 }
 
@@ -534,6 +539,9 @@ func (v *Object) HandlerUnblock(handle SignalHandle) {
 // HandlerDisconnect() is a wrapper around g_signal_handler_disconnect().
 func (v *Object) HandlerDisconnect(handle SignalHandle) {
 	C.g_signal_handler_disconnect(C.gpointer(v.ptr), C.gulong(handle))
+	C.g_closure_invalidate(signals[handle])
+	delete(closures.m, signals[handle])
+	delete(signals, handle)
 }
 
 /*
