@@ -46,6 +46,14 @@ var (
 	}{}
 )
 
+func init() {
+	// call g_type_init() if the version is lower than 2.36
+	c := C.glib_check_version(C.guint(2), C.guint(36), C.guint(0))
+	if c != nil {
+		C.g_type_init()
+	}
+}
+
 /*
  * Type conversions
  */
@@ -581,7 +589,7 @@ func (v *Object) HandlerDisconnect(callID int) {
 
 // InitiallyUnowned is a representation of GLib's GInitiallyUnowned.
 type InitiallyUnowned struct {
-	*Object
+	Object
 }
 
 /*

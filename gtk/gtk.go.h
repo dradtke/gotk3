@@ -31,17 +31,6 @@ set_type(GType *types, int n, GType t)
 	types[n] = t;
 }
 
-static GtkTreeViewColumn *
-_gtk_tree_view_column_new_with_attributes_one(const gchar *title,
-    GtkCellRenderer *renderer, const gchar *attribute, gint column)
-{
-	GtkTreeViewColumn	*tvc;
-
-	tvc = gtk_tree_view_column_new_with_attributes(title, renderer,
-	    attribute, column, NULL);
-	return (tvc);
-}
-
 static void
 _gtk_tree_view_column_set_attribute(GtkTreeViewColumn *tree_column,
     GtkCellRenderer *cell_renderer, gchar *attr, gint column)
