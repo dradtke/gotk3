@@ -68,7 +68,7 @@ func gobool(b C.gboolean) bool {
 
 var (
 	nilPtrErr = errors.New("cgo returned unexpected nil pointer")
-	closures = struct {
+	closures  = struct {
 		sync.RWMutex
 		m map[*C.GClosure]reflect.Value
 	}{}
@@ -173,9 +173,9 @@ func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
 func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
 	var (
 		go_params []reflect.Value
-		ret []reflect.Value
-		callback = closures.m[closure]
-		numIn = callback.Type().NumIn()
+		ret       []reflect.Value
+		callback  = closures.m[closure]
+		numIn     = callback.Type().NumIn()
 		numParams = int(n_param_values)
 	)
 	if numIn == 0 {
@@ -184,7 +184,7 @@ func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.gui
 	} else if numIn <= numParams {
 		params := valueSlice(numParams, param_values)
 		go_params = make([]reflect.Value, numIn)
-		for i := 0; i<numIn; i++ {
+		for i := 0; i < numIn; i++ {
 			v := &Value{params[i]}
 			val, err := v.GoValue()
 			if err != nil {
@@ -817,7 +817,7 @@ func (v *Value) GoValue() (interface{}, error) {
 		c := C.g_value_get_object(v.Native())
 		// TODO: need to try and return an actual pointer to the correct object type
 		// this may require an additional cast()-like method for each module
-		return unsafe.Pointer(c), nil
+		return ObjectNew(unsafe.Pointer(c)), nil
 	case TYPE_VARIANT:
 		return nil, errors.New("variant conversion not yet implemented")
 	default:
@@ -916,3 +916,186 @@ func valueSlice(n_values int, values *C.GValue) (slice []C.GValue) {
 	return
 }
 
+/*
+ * Variant
+ */
+
+type Variant struct {
+	ptr *C.GVariant
+	typ VariantType
+}
+
+type VariantType int
+
+const (
+	VARIANT_TYPE_BOOLEAN VariantType = iota
+	VARIANT_TYPE_BYTE
+	VARIANT_TYPE_INT16
+	VARIANT_TYPE_UINT16
+	VARIANT_TYPE_INT32
+	VARIANT_TYPE_UINT32
+	VARIANT_TYPE_INT64
+	VARIANT_TYPE_UINT64
+	VARIANT_TYPE_HANDLE
+	VARIANT_TYPE_DOUBLE
+	VARIANT_TYPE_STRING
+	VARIANT_TYPE_OBJECT_PATH
+	VARIANT_TYPE_SIGNATURE
+	VARIANT_TYPE_VARIANT
+	VARIANT_TYPE_ANY
+	VARIANT_TYPE_BASIC
+	VARIANT_TYPE_MAYBE
+	VARIANT_TYPE_ARRAY
+	VARIANT_TYPE_TUPLE
+	VARIANT_TYPE_UNIT
+	VARIANT_TYPE_DICT_ENTRY
+	VARIANT_TYPE_DICTIONARY
+	VARIANT_TYPE_STRING_ARRAY
+	VARIANT_TYPE_OBJECT_PATH_ARRAY
+	VARIANT_TYPE_BYTESTRING
+	VARIANT_TYPE_BYTESTRING_ARRAY
+	VARIANT_TYPE_VARDICT
+)
+
+// special Variant types
+type ObjectPath string
+
+func (v ObjectPath) IsObjectPath() bool {
+	cstr := C.CString(string(v))
+	defer C.free(unsafe.Pointer(cstr))
+	return gobool(C.g_variant_is_object_path((*C.gchar)(cstr)))
+}
+
+type Signature string
+
+func (v Signature) IsSignature() bool {
+	cstr := C.CString(string(v))
+	defer C.free(unsafe.Pointer(cstr))
+	return gobool(C.g_variant_is_signature((*C.gchar)(cstr)))
+}
+
+// VariantNew() is a wrapper around the various g_variant_new_*() functions.
+func VariantNew(val interface{}) (*Variant, error) {
+	var (
+		c *C.GVariant
+		typ VariantType
+	)
+	switch t := val.(type) {
+	case bool:
+		c = C.g_variant_new_boolean(gbool(t))
+		typ = VARIANT_TYPE_BOOLEAN
+	case byte:
+		c = C.g_variant_new_byte(C.guchar(t))
+		typ = VARIANT_TYPE_BYTE
+	case int16:
+		c = C.g_variant_new_int16(C.gint16(t))
+		typ = VARIANT_TYPE_INT16
+	case uint16:
+		c = C.g_variant_new_uint16(C.guint16(t))
+		typ = VARIANT_TYPE_UINT16
+	case int32:
+		c = C.g_variant_new_int32(C.gint32(t))
+		typ = VARIANT_TYPE_INT32
+	case uint32:
+		c = C.g_variant_new_uint32(C.guint32(t))
+		typ = VARIANT_TYPE_UINT32
+	case int64:
+		c = C.g_variant_new_int64(C.gint64(t))
+		typ = VARIANT_TYPE_INT64
+	case uint64:
+		c = C.g_variant_new_uint64(C.guint64(t))
+		typ = VARIANT_TYPE_UINT64
+	// TODO: handle
+	case float64:
+		c = C.g_variant_new_double(C.gdouble(t))
+		typ = VARIANT_TYPE_DOUBLE
+	case string:
+		cstr := C.CString(t)
+		defer C.free(unsafe.Pointer(cstr))
+		c = C.g_variant_new_string((*C.gchar)(cstr))
+		typ = VARIANT_TYPE_STRING
+	case ObjectPath:
+		cstr := C.CString(string(t))
+		defer C.free(unsafe.Pointer(cstr))
+		c = C.g_variant_new_object_path((*C.gchar)(cstr))
+		typ = VARIANT_TYPE_OBJECT_PATH
+	case Signature:
+		cstr := C.CString(string(t))
+		defer C.free(unsafe.Pointer(cstr))
+		c = C.g_variant_new_signature((*C.gchar)(cstr))
+		typ = VARIANT_TYPE_SIGNATURE
+	case *Variant:
+		c = C.g_variant_new_variant(t.ptr)
+		typ = VARIANT_TYPE_VARIANT
+	case []string:
+		length := len(t)
+		strv := make([]*C.gchar, length)
+		for i, str := range t {
+			cstr := C.CString(str)
+			defer C.free(unsafe.Pointer(cstr))
+			strv[i] = (*C.gchar)(cstr)
+		}
+		c = C.g_variant_new_strv((**C.gchar)(unsafe.Pointer(&strv[0])), C.gssize(length))
+		typ = VARIANT_TYPE_STRING_ARRAY
+	case []ObjectPath:
+		length := len(t)
+		strv := make([]*C.gchar, length)
+		for i, str := range t {
+			cstr := C.CString(string(str))
+			defer C.free(unsafe.Pointer(cstr))
+			strv[i] = (*C.gchar)(cstr)
+		}
+		c = C.g_variant_new_objv((**C.gchar)(unsafe.Pointer(&strv[0])), C.gssize(length))
+		typ = VARIANT_TYPE_OBJECT_PATH_ARRAY
+	case []byte:
+		// TODO: test this to verify that it works
+		length := len(t)
+		bytestring := make([]C.gchar, length+1)
+		for i, b := range t {
+			bytestring[i] = C.gchar(b)
+		}
+		bytestring[length] = C.gchar(0)
+		c = C.g_variant_new_bytestring((*C.gchar)(unsafe.Pointer(&bytestring[0])))
+		typ = VARIANT_TYPE_BYTESTRING
+	case [][]byte:
+		// TODO: test this to verify that it works
+		n_strings := len(t)
+		bytestrings := make([][]C.gchar, n_strings)
+		for i, bytes := range t {
+			length := len(bytes)
+			bytestring := make([]C.gchar, length+1)
+			for j, b := range bytes {
+				bytestring[j] = C.gchar(b)
+			}
+			bytestring[length] = C.gchar(0)
+			bytestrings[i] = bytestring
+		}
+		c = C.g_variant_new_bytestring_array((**C.gchar)(unsafe.Pointer(&bytestrings[0])), C.gssize(n_strings))
+		typ = VARIANT_TYPE_BYTESTRING_ARRAY
+	default:
+		return nil, fmt.Errorf("unexpected variant type: %v", val)
+	}
+	v := &Variant{c, typ}
+	runtime.SetFinalizer(v, (*Variant).Unref)
+	return v, nil
+}
+
+// ???: use one Get() method, or implement individual ones for each type?
+// Maybe use this one as the "safe" version, and have other versions panic
+// if the type is wrong.
+func (v *Variant) Get() (interface{}, error) {
+	switch v.typ {
+	case VARIANT_TYPE_BOOLEAN:
+		return gobool(C.g_variant_get_boolean(v.ptr))
+	default:
+		return nil, fmt.Errorf("tried to get invalid value from variant: %v", v.typ)
+	}
+}
+
+func (v *Variant) RefSink() {
+	C.g_variant_ref_sink(v.ptr)
+}
+
+func (v *Variant) Unref() {
+	C.g_variant_unref(v.ptr)
+}

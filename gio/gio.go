@@ -175,6 +175,10 @@ func (v *Application) UnmarkBusy() {
 }
 */
 
+/*
+ * DBus
+ */
+
 type BusType int
 
 const (
@@ -194,9 +198,10 @@ const (
 
 type BusCallback func(conn *DBusConnection, name string)
 
-func (f BusCallback) Generalize() func(unsafe.Pointer, string) {
-	return func(ptr unsafe.Pointer, name string) {
-		f((*DBusConnection)(ptr), name)
+func (callback BusCallback) wrap() func(*glib.Object, string) {
+	return func(obj *glib.Object, name string) {
+		conn := wrapDBusConnection(obj)
+		callback(&conn, name)
 	}
 }
 
@@ -215,12 +220,38 @@ func BusOwnName(typ BusType, name string, flags BusNameOwnerFlags, busAcquired B
 	cstr := C.CString(name)
 	defer C.free(unsafe.Pointer(cstr))
 	h := C.g_bus_own_name_with_closures(C.GBusType(typ), (*C.gchar)(cstr), C.GBusNameOwnerFlags(flags),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(busAcquired.Generalize()))),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameAcquired.Generalize()))),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameLost.Generalize()))))
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(busAcquired.wrap()))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameAcquired.wrap()))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameLost.wrap()))))
 	return BusNameHandle(h)
 }
 
 type DBusConnection struct {
-	ptr unsafe.Pointer
+	glib.Object
+}
+
+func wrapDBusConnection(obj *glib.Object) DBusConnection {
+	return DBusConnection{*obj}
+}
+
+/*
+ * Settings
+ */
+
+type Settings struct {
+	ptr *C.GSettings
+}
+
+func SettingsNew(schemaId string) (*Settings, error) {
+	cstr := C.CString(schemaId)
+	defer C.free(unsafe.Pointer(cstr))
+	c := C.g_settings_new((*C.gchar)(cstr))
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return &Settings{c}, nil
+}
+
+func SettingsSync() {
+	C.g_settings_sync()
 }
