@@ -192,14 +192,19 @@ const (
 	BUS_NAME_OWNER_FLAGS_REPLACE                             = C.G_BUS_NAME_OWNER_FLAGS_REPLACE
 )
 
-// TODO: add GDBusConnection
+type BusCallback func(conn *DBusConnection, name string)
+
+func (f BusCallback) Generalize() func(unsafe.Pointer, string) {
+	return func(ptr unsafe.Pointer, name string) {
+		f((*DBusConnection)(ptr), name)
+	}
+}
+
 type BusNameHandle uint
 
 func (h BusNameHandle) Unown() {
 	C.g_bus_unown_name(C.guint(h))
 }
-
-type BusCallback func(conn *BusConnection, name string)
 
 // BusOwnName() is a wrapper around g_bus_own_name_with_closures(). One of the following three situations is guaranteed:
 //   * nameLost() is called with a null connection
@@ -210,12 +215,12 @@ func BusOwnName(typ BusType, name string, flags BusNameOwnerFlags, busAcquired B
 	cstr := C.CString(name)
 	defer C.free(unsafe.Pointer(cstr))
 	h := C.g_bus_own_name_with_closures(C.GBusType(typ), (*C.gchar)(cstr), C.GBusNameOwnerFlags(flags),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { busAcquired(&BusConnection{ptr}, name) }))),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { nameAcquired(&BusConnection{ptr}, name) }))),
-		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(func(ptr unsafe.Pointer, name string) { nameLost(&BusConnection{ptr}, name) }))))
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(busAcquired.Generalize()))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameAcquired.Generalize()))),
+		(*C.GClosure)(unsafe.Pointer(glib.ClosureNew(nameLost.Generalize()))))
 	return BusNameHandle(h)
 }
 
-type BusConnection struct {
+type DBusConnection struct {
 	ptr unsafe.Pointer
 }

@@ -171,13 +171,12 @@ func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
 //
 //export goMarshal
 func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
-	fmt.Println("marshaling")
 	var (
 		go_params []reflect.Value
+		ret []reflect.Value
 		callback = closures.m[closure]
 		numIn = callback.Type().NumIn()
 		numParams = int(n_param_values)
-		ret []reflect.Value
 	)
 	if numIn == 0 {
 		go_params = make([]reflect.Value, 0)
@@ -186,7 +185,7 @@ func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.gui
 		params := valueSlice(numParams, param_values)
 		go_params = make([]reflect.Value, numIn)
 		for i := 0; i<numIn; i++ {
-			v := &Value{*params[i]}
+			v := &Value{params[i]}
 			val, err := v.GoValue()
 			if err != nil {
 				panic(err)
@@ -614,12 +613,9 @@ func (v *Value) unset() {
 	C.g_value_unset(v.Native())
 }
 
-// GetType() is a wrappr around the G_VALUE_HOLDS_GTYPE() macro and
-// the g_value_get_gtype() function.  GetType() returns TYPE_INVALID if v
-// does not hold a Type, or otherwise returns the Type of v.
-func (v *Value) GetType() (actual Type, fundamental Type) {
+func (v *Value) Type() (actual Type, fundamental Type) {
 	if !gobool(C._g_is_value(v.Native())) {
-		panic("tried to call GetType() on invalid GValue")
+		panic("tried to call Type() on invalid GValue")
 	}
 	c_actual := C._g_value_type(v.Native())
 	c_fundamental := C._g_value_fundamental(c_actual)
@@ -767,7 +763,7 @@ func GValue(v interface{}) (gvalue *Value, err error) {
 // This function is a wrapper around the many g_value_get_*()
 // functions, depending on the type of the Value.
 func (v *Value) GoValue() (interface{}, error) {
-	actual, fundamental := v.GetType()
+	actual, fundamental := v.Type()
 	// TODO: verify that all of these cases are indeed fundamental types
 	switch fundamental {
 	case TYPE_INVALID:
@@ -912,11 +908,11 @@ func (v *Value) PeekPointer() interface{} {
 }
 
 // valueSlice() converts a C array of GValues to a Go slice.
-func valueSlice(n_values int, values *C.GValue) (slice []*C.GValue) {
+func valueSlice(n_values int, values *C.GValue) (slice []C.GValue) {
 	header := (*reflect.SliceHeader)((unsafe.Pointer(&slice)))
 	header.Cap = n_values
 	header.Len = n_values
-	header.Data = uintptr(unsafe.Pointer(&values))
+	header.Data = uintptr(unsafe.Pointer(values))
 	return
 }
 
