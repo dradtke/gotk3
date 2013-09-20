@@ -1086,7 +1086,7 @@ func VariantNew(val interface{}) (*Variant, error) {
 func (v *Variant) Get() (interface{}, error) {
 	switch v.typ {
 	case VARIANT_TYPE_BOOLEAN:
-		return gobool(C.g_variant_get_boolean(v.ptr))
+		return gobool(C.g_variant_get_boolean(v.ptr)), nil
 	default:
 		return nil, fmt.Errorf("tried to get invalid value from variant: %v", v.typ)
 	}
