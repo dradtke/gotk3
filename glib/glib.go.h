@@ -201,11 +201,12 @@ typedef struct {
 	gpointer callback;
 } GGoClosure;
 
+extern void goMarshal(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);
+
 static GClosure *_g_go_closure_new(gpointer callback_func) {
 	GClosure *closure;
 	closure = g_closure_new_simple(sizeof(GGoClosure), NULL);
 	((GGoClosure*) closure)->callback = callback_func;
+	g_closure_set_marshal(closure, (GClosureMarshal)(goMarshal));
 	return closure;
 }
-
-extern void _closureMarshalVoidInt(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);

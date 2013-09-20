@@ -922,10 +922,31 @@ func ClosureNew(f interface{}) *C.GClosure {
 	return C._g_go_closure_new(C.gpointer(reflect.ValueOf(f).Pointer()))
 }
 
-//export _closureMarshalVoidInt
-func _closureMarshalVoidInt(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
-	//params := valueSlice(int(n_param_values), param_values)
-	// TODO: marshal
-	// The closure variable has a 'callback' value that is a raw pointer to the Go callback function we need.
-	// We need to extract it out of there and use reflection to call it with the parameters and values seen here.
+//export goMarshal
+func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
+	params := valueSlice(int(n_param_values), param_values)
+	go_params := make([]reflect.Value, int(n_param_values))
+	for i, param := range params {
+		v := &Value{*param}
+		val, err := v.GoValue()
+		if err != nil {
+			panic(err)
+		}
+		go_params[i] = reflect.ValueOf(val)
+	}
+	f := reflect.ValueOf(unsafe.Pointer(((*C.GGoClosure)(unsafe.Pointer(closure))).callback))
+	ret := f.Call(go_params)
+	if return_value != nil && len(ret) > 0 {
+		g, err := GValue(ret[0].Interface())
+		if err != nil {
+			panic(err)
+		}
+		(*return_value) = *g.Native()
+	}
+}
+
+func (v *Object) ConnectClosure(detailed_signal string, f interface{}) {
+	cstr := C.CString(detailed_signal)
+	defer C.free(unsafe.Pointer(cstr))
+	C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), ClosureNew(f), gbool(false))
 }
