@@ -71,11 +71,25 @@ var (
 		sync.RWMutex
 		m map[*C.GClosure]reflect.Value
 	}{}
+	/*
 	idleFnContexts = struct {
 		sync.RWMutex
 		s []*idleFnContext
 	}{}
+	*/
 )
+
+/*
+ * closureNew() creates a new GClosure and adds its callback function
+ * to the internally-maintained map.
+ */
+func closureNew(f interface{}) *C.GClosure {
+	closure := C._g_closure_new()
+	closures.Lock()
+	closures.m[closure] = reflect.ValueOf(f)
+	closures.Unlock()
+	return closure
+}
 
 /*
  * Constants
@@ -139,10 +153,7 @@ type SignalHandle uint64
 func (v *Object) Connect(detailed_signal string, f interface{}) SignalHandle {
 	cstr := C.CString(detailed_signal)
 	defer C.free(unsafe.Pointer(cstr))
-	closure := C._g_closure_new()
-	closures.Lock()
-	closures.m[closure] = reflect.ValueOf(f)
-	closures.Unlock()
+	closure := closureNew(f)
 	c := C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), closure, gbool(false))
 	h := SignalHandle(c)
 	return h
@@ -187,85 +198,91 @@ func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.gui
 		}
 		(*return_value) = *g.Native()
 	}
-	// TODO: invalidate the closure and delete from the map if possible
+	// TODO: invalidate the closure (if need be) and delete from the map if possible
+}
+
+/*
+ * Source support
+ */
+
+type Source struct {
+	ptr unsafe.Pointer
+}
+
+type SourceHandle uint
+
+// Native() returns a pointer to the underlying GSource.
+func (v *Source) Native() *C.GSource {
+	if v == nil || v.ptr == nil {
+		return nil
+	}
+	return (*C.GSource)(v.ptr)
+}
+
+func IdleAdd(f interface{}) (SourceHandle, error) {
+	return idleAdd(nil, f)
+}
+
+func idleAdd(context *MainContext, f interface{}) (SourceHandle, error) {
+	c := C.g_idle_source_new()
+	if c == nil {
+		return 0, nilPtrErr
+	}
+	var ctx *C.GMainContext = nil
+	if context != nil {
+		ctx = (*C.GMainContext)(context.ptr)
+	}
+	C.g_source_set_closure(c, closureNew(f))
+	cid := C.g_source_attach(c, ctx)
+	return SourceHandle(cid), nil
 }
 
 /*
  * Main event loop
  */
 
-type idleFnContext struct {
-	f    interface{}
-	args []reflect.Value
-	idl  *C.idleinfo
+type MainContext struct {
+	ptr unsafe.Pointer
 }
 
-// IdleAdd() is a wrapper around g_idle_add() and adds the function f,
-// called with the arguments in datas, to run in the context of the GLib
-// event loop.  IdleAdd() returns a uint representing the identifier for
-// this source function, and an error if f is not a function, len(datas)
-// does not match the number of inputs to f, or there is a type mismatch
-// between arguments.
-func IdleAdd(f interface{}, datas ...interface{}) (uint, error) {
-	rf := reflect.ValueOf(f)
-	if rf.Kind() != reflect.Func {
-		return 0, errors.New("f is not a function")
-	}
-	t := rf.Type()
-	if t.NumIn() != len(datas) {
-		return 0, errors.New("Number of arguments do not match")
-	}
-
-	var vals []reflect.Value
-	for i := range datas {
-		ntharg := t.In(i)
-		val := reflect.ValueOf(datas[i])
-		if ntharg.Kind() != val.Kind() {
-			s := fmt.Sprint("Types of arg", i, "do not match")
-			return 0, errors.New(s)
-		}
-		vals = append(vals, val)
-	}
-
-	ctx := &idleFnContext{}
-	ctx.f = f
-	ctx.args = vals
-
-	idleFnContexts.Lock()
-	idleFnContexts.s = append(idleFnContexts.s, ctx)
-	idleFnContexts.Unlock()
-
-	idleFnContexts.RLock()
-	nIdleFns := len(idleFnContexts.s)
-	idleFnContexts.RUnlock()
-	idl := C._g_idle_add(C.int(nIdleFns) - 1)
-
-	ctx.idl = idl
-
-	return uint(idl.id), nil
+func (v *MainContext) IdleAdd(f interface{}) (SourceHandle, error) {
+	return idleAdd(v, f)
 }
 
-//export _go_glib_idle_fn
-func _go_glib_idle_fn(idl *C.idleinfo) {
-	idleFnContexts.RLock()
-	ctx := idleFnContexts.s[int(idl.func_n)]
-	idleFnContexts.RUnlock()
-	rf := reflect.ValueOf(ctx.f)
-	rv := rf.Call(ctx.args)
-	if len(rv) == 1 {
-		if rv[0].Kind() == reflect.Bool {
-			idl.ret = gbool(rv[0].Bool())
-			return
-		}
-	}
-	idl.ret = gbool(false)
+type MainLoop struct {
+	ptr unsafe.Pointer
 }
 
-//export _go_nil_unused_idle_ctx
-func _go_nil_unused_idle_ctx(n C.int) {
-	idleFnContexts.Lock()
-	idleFnContexts.s[int(n)] = nil
-	idleFnContexts.Unlock()
+func MainLoopNew(context *MainContext) (*MainLoop, error) {
+	var ctx *C.GMainContext = nil
+	if context != nil {
+		ctx = (*C.GMainContext)(context.ptr)
+	}
+	c := C.g_main_loop_new(ctx, gbool(true))
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return &MainLoop{unsafe.Pointer(c)}, nil
+}
+
+// Native() returns a pointer to the underlying GMainLoop.
+func (v *MainLoop) Native() *C.GMainLoop {
+	if v == nil || v.ptr == nil {
+		return nil
+	}
+	return (*C.GMainLoop)(v.ptr)
+}
+
+func (v *MainLoop) Run() {
+	C.g_main_loop_run(v.Native())
+}
+
+func (v *MainLoop) Quit() {
+	C.g_main_loop_quit(v.Native())
+}
+
+func (v *MainLoop) Context() *MainContext {
+	return &MainContext{unsafe.Pointer(C.g_main_loop_get_context(v.Native()))}
 }
 
 /*

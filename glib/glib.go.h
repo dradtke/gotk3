@@ -47,56 +47,6 @@ val_list_insert(GValue *valv, int i, GValue *val)
 	valv[i] = *val;
 }
 
-typedef struct {
-	int		func_n;
-	gboolean	ret;
-	guint		id;
-} idleinfo;
-
-/* Call to Go to nil this context to free memory next garbage collection */
-extern void _go_nil_unused_idle_ctx(int n);
-
-/*
- * Called after a function is removed from the main loop context to free the
- * idle context.
- */
-static void
-idleinfo_free(gpointer data)
-{
-	idleinfo	*idl = (idleinfo *)data;
-
-	_go_nil_unused_idle_ctx(idl->func_n);
-	free(idl);
-}
-
-/* Call to Go to run func in the main loop context */
-extern void _go_glib_idle_fn(idleinfo *idl);
-
-static gboolean
-_g_idle_run(gpointer user_data)
-{
-	idleinfo	*idl = (idleinfo *)user_data;
-
-	_go_glib_idle_fn(idl);
-	return (idl->ret);
-}
-
-/*
- * Create idleinfo context and add _g_idle_run and its context to run
- * in the GTK main loop during idle state
- */
-static idleinfo *
-_g_idle_add(int func_n)
-{
-	idleinfo	*idl;
-
-	idl = (idleinfo *)malloc(sizeof(idleinfo));
-	idl->func_n = func_n;
-	idl->id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, _g_idle_run,
-	    (gpointer)idl, idleinfo_free);
-	return (idl);
-}
-
 /*
  * GValue
  */
@@ -116,30 +66,6 @@ _g_value_init(GType g_type)
 	return (g_value_init(value, g_type));
 }
 
-/*
-static gboolean
-_g_value_holds_gtype(gpointer val)
-{
-	return (G_VALUE_HOLDS_GTYPE(val));
-}
-*/
-
-/*
-static GType
-_g_value_type(GValue *val)
-{
-	return (G_VALUE_TYPE(val));
-}
-*/
-
-/*
-static const char *
-_g_value_type_name(GValue *val)
-{
-	return (G_VALUE_TYPE_NAME(val));
-}
-*/
-
 static GType
 _g_value_type(GValue *val)
 {
@@ -153,7 +79,7 @@ _g_value_fundamental(GType type)
 }
 
 /*
- * Experimental closure support
+ * Closures
  */
 
 extern void goMarshal(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);
