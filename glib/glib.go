@@ -109,6 +109,10 @@ const (
 	TYPE_VARIANT        = C.G_TYPE_VARIANT
 )
 
+func (t Type) Name() string {
+	return C.GoString((*C.char)(C.g_type_name(C.GType(t))))
+}
+
 // UserDirectory is a representation of GLib's GUserDirectory.
 type UserDirectory int
 
@@ -645,13 +649,18 @@ func (v *Value) unset() {
 // GetType() is a wrappr around the G_VALUE_HOLDS_GTYPE() macro and
 // the g_value_get_gtype() function.  GetType() returns TYPE_INVALID if v
 // does not hold a Type, or otherwise returns the Type of v.
-func (v *Value) GetType() Type {
+func (v *Value) GetType() (actual Type, fundamental Type) {
+	/*
 	c := C._g_value_holds_gtype(C.gpointer(unsafe.Pointer(v.Native())))
 	if gobool(c) {
 		c := C.g_value_get_gtype(v.Native())
 		return Type(c)
 	}
 	return TYPE_INVALID
+	*/
+	c_actual := C._g_value_type(v.Native())
+	c_fundamental := C._g_value_fundamental(c_actual)
+	return Type(c_actual), Type(c_fundamental)
 }
 
 // GValue() converts a Go type to a comparable GValue.  GValue()
@@ -795,7 +804,8 @@ func GValue(v interface{}) (gvalue *Value, err error) {
 // This function is a wrapper around the many g_value_get_*()
 // functions, depending on the type of the Value.
 func (v *Value) GoValue() (interface{}, error) {
-	switch v.GetType() {
+	actual, fundamental := v.GetType()
+	switch fundamental {
 	case TYPE_INVALID:
 		return nil, errors.New("Invalid type")
 	case TYPE_NONE:
@@ -830,8 +840,13 @@ func (v *Value) GoValue() (interface{}, error) {
 	case TYPE_STRING:
 		c := C.g_value_get_string(v.Native())
 		return C.GoString((*C.char)(c)), nil
+	case TYPE_OBJECT:
+		c := C.g_value_get_object(v.Native())
+		// TODO: need to try and return an actual pointer to the correct object type
+		// this may require an additional cast()-like method for each module
+		return unsafe.Pointer(c), nil
 	default:
-		return nil, errors.New("Type conversion not supported")
+		return nil, errors.New("Type conversion not supported for type: " + actual.Name())
 	}
 }
 
@@ -909,6 +924,10 @@ func (v *Value) GetString() (string, error) {
 	return C.GoString((*C.char)(c)), nil
 }
 
+func (v *Value) PeekPointer() interface{} {
+	return C.g_value_peek_pointer(v.Native())
+}
+
 // valueSlice() converts a C array of GValues to a Go slice.
 func valueSlice(n_values int, values *C.GValue) (slice []*C.GValue) {
 	header := (*reflect.SliceHeader)((unsafe.Pointer(&slice)))
@@ -918,24 +937,61 @@ func valueSlice(n_values int, values *C.GValue) (slice []*C.GValue) {
 	return
 }
 
+/*
+ * Closure support.
+ */
+
+var closureMap = make(map[*C.GClosure]reflect.Value)
+
+// ClosureNew() creates a new closure and associates it with the provided callback
+// function. The association is kept in the Go runtime to avoid having to try and
+// wrangle a gpointer back into a Go function whose signature we don't know.
 func ClosureNew(f interface{}) *C.GClosure {
-	return C._g_go_closure_new(C.gpointer(reflect.ValueOf(f).Pointer()))
+	c := C._g_closure_new()
+	closureMap[c] = reflect.ValueOf(f)
+	return c
 }
 
+// ConnectClosure() is an alternative to Connect() which utilizes closures.
+// It should eventually replace Connect().
+func (v *Object) ConnectClosure(detailed_signal string, f interface{}) {
+	cstr := C.CString(detailed_signal)
+	defer C.free(unsafe.Pointer(cstr))
+	C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), ClosureNew(f), gbool(false))
+}
+
+// goMarshal() is called by the GLib runtime when a closure needs to be invoked.
+// The closure will be invoked with as many arguments as it can take, from 0 to
+// the full amount provided by the call. If the closure asks for more parameters
+// than there are to give, this method panics.
+//
 //export goMarshal
 func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
-	params := valueSlice(int(n_param_values), param_values)
-	go_params := make([]reflect.Value, int(n_param_values))
-	for i, param := range params {
-		v := &Value{*param}
-		val, err := v.GoValue()
-		if err != nil {
-			panic(err)
+	var (
+		go_params []reflect.Value
+		callback = closureMap[closure]
+		numIn = callback.Type().NumIn()
+		numParams = int(n_param_values)
+		ret []reflect.Value
+	)
+	if numIn == 0 {
+		go_params = make([]reflect.Value, 0)
+		ret = callback.Call(go_params)
+	} else if numIn <= numParams {
+		params := valueSlice(numParams, param_values)
+		go_params = make([]reflect.Value, numIn)
+		for i := 0; i<numIn; i++ {
+			v := &Value{*params[i]}
+			val, err := v.GoValue()
+			if err != nil {
+				panic(err)
+			}
+			go_params[i] = reflect.ValueOf(val)
 		}
-		go_params[i] = reflect.ValueOf(val)
+		ret = callback.Call(go_params)
+	} else {
+		panic(fmt.Sprintf("not enough arguments to call closure; it expects %d, but we only have %d", numIn, numParams))
 	}
-	f := reflect.ValueOf(unsafe.Pointer(((*C.GGoClosure)(unsafe.Pointer(closure))).callback))
-	ret := f.Call(go_params)
 	if return_value != nil && len(ret) > 0 {
 		g, err := GValue(ret[0].Interface())
 		if err != nil {
@@ -943,10 +999,6 @@ func goMarshal(closure *C.GClosure, return_value *C.GValue, n_param_values C.gui
 		}
 		(*return_value) = *g.Native()
 	}
+	delete(closureMap, closure)
 }
 
-func (v *Object) ConnectClosure(detailed_signal string, f interface{}) {
-	cstr := C.CString(detailed_signal)
-	defer C.free(unsafe.Pointer(cstr))
-	C.g_signal_connect_closure(C.gpointer(v.Native()), (*C.gchar)(cstr), ClosureNew(f), gbool(false))
-}

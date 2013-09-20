@@ -184,29 +184,51 @@ _g_value_init(GType g_type)
 	return (g_value_init(value, g_type));
 }
 
+/*
 static gboolean
 _g_value_holds_gtype(gpointer val)
 {
 	return (G_VALUE_HOLDS_GTYPE(val));
 }
+*/
 
+/*
+static GType
+_g_value_type(GValue *val)
+{
+	return (G_VALUE_TYPE(val));
+}
+*/
 
+/*
+static const char *
+_g_value_type_name(GValue *val)
+{
+	return (G_VALUE_TYPE_NAME(val));
+}
+*/
+
+static GType
+_g_value_type(GValue *val)
+{
+	return (G_VALUE_TYPE(val));
+}
+
+static GType
+_g_value_fundamental(GType type)
+{
+	return (G_TYPE_FUNDAMENTAL(type));
+}
 
 /*
  * Experimental closure support
  */
 
-typedef struct {
-	GClosure closure;
-	gpointer callback;
-} GGoClosure;
-
 extern void goMarshal(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);
 
-static GClosure *_g_go_closure_new(gpointer callback_func) {
+static GClosure *_g_closure_new() {
 	GClosure *closure;
-	closure = g_closure_new_simple(sizeof(GGoClosure), NULL);
-	((GGoClosure*) closure)->callback = callback_func;
+	closure = g_closure_new_simple(sizeof(GClosure), NULL);
 	g_closure_set_marshal(closure, (GClosureMarshal)(goMarshal));
 	return closure;
 }
