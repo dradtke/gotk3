@@ -908,3 +908,24 @@ func (v *Value) GetString() (string, error) {
 	}
 	return C.GoString((*C.char)(c)), nil
 }
+
+// valueSlice() converts a C array of GValues to a Go slice.
+func valueSlice(n_values int, values *C.GValue) (slice []*C.GValue) {
+	header := (*reflect.SliceHeader)((unsafe.Pointer(&slice)))
+	header.Cap = n_values
+	header.Len = n_values
+	header.Data = uintptr(unsafe.Pointer(&values))
+	return
+}
+
+func ClosureNew(f interface{}) *C.GClosure {
+	return C._g_go_closure_new(C.gpointer(reflect.ValueOf(f).Pointer()))
+}
+
+//export _closureMarshalVoidInt
+func _closureMarshalVoidInt(closure *C.GClosure, return_value *C.GValue, n_param_values C.guint, param_values *C.GValue, invocation_hint C.gpointer, marshal_data C.gpointer) {
+	//params := valueSlice(int(n_param_values), param_values)
+	// TODO: marshal
+	// The closure variable has a 'callback' value that is a raw pointer to the Go callback function we need.
+	// We need to extract it out of there and use reflection to call it with the parameters and values seen here.
+}

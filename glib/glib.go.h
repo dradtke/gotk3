@@ -189,3 +189,23 @@ _g_value_holds_gtype(gpointer val)
 {
 	return (G_VALUE_HOLDS_GTYPE(val));
 }
+
+
+
+/*
+ * Experimental closure support
+ */
+
+typedef struct {
+	GClosure closure;
+	gpointer callback;
+} GGoClosure;
+
+static GClosure *_g_go_closure_new(gpointer callback_func) {
+	GClosure *closure;
+	closure = g_closure_new_simple(sizeof(GGoClosure), NULL);
+	((GGoClosure*) closure)->callback = callback_func;
+	return closure;
+}
+
+extern void _closureMarshalVoidInt(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);
