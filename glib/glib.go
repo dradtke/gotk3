@@ -352,6 +352,10 @@ func (v *Object) ToObject() *Object {
 	return v
 }
 
+func (v *Object) IsA(typ Type) bool {
+	return gobool(C.g_type_is_a(C.GType(v.Type()), C.GType(typ)))
+}
+
 func (v *Object) toGObject() *C.GObject {
 	if v == nil {
 		return nil
@@ -359,7 +363,7 @@ func (v *Object) toGObject() *C.GObject {
 	return v.Native()
 }
 
-func (v *Object) typeFromInstance() Type {
+func (v *Object) Type() Type {
 	c := C._g_type_from_instance(C.gpointer(v.ptr))
 	return Type(c)
 }
@@ -524,7 +528,7 @@ func (v *Object) Emit(s string, args ...interface{}) (interface{}, error) {
 		C.val_list_insert(valv, C.int(i+1), val.Native())
 	}
 
-	t := v.typeFromInstance()
+	t := v.Type()
 	id := C.g_signal_lookup((*C.gchar)(cstr), C.GType(t))
 
 	ret, err := ValueAlloc()
@@ -1236,4 +1240,26 @@ func (v *Variant) RefSink() {
 
 func (v *Variant) Unref() {
 	C.g_variant_unref(v.ptr)
+}
+
+/*
+ * Invalid type handling
+ */
+
+
+// InvalidTypePanic() is an internal utility method for reporting
+// typecasting errors. It's exported for visibility to other gotk3
+// packages and shouldn't be called directly by users.
+func InvalidTypePanic(expected Type, got IObject) {
+	pc1, file, line, _ := runtime.Caller(3)
+	pc2, _, _, _ := runtime.Caller(2)
+	fmt.Fprintf(os.Stderr, "%s: %s: line %d: tried to call function '%s' on invalid type. " +
+		"Expected %s, but received a %s.\n",
+		file,
+		runtime.FuncForPC(pc1).Name(),
+		line,
+		runtime.FuncForPC(pc2).Name(),
+		expected.Name(),
+		got.ToObject().Type().Name())
+	os.Exit(1)
 }
