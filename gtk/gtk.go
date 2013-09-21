@@ -4113,7 +4113,7 @@ var widgetType = glib.Type(C.gtk_widget_get_type())
 func (v *Widget) Native() *C.GtkWidget {
 	if v == nil || v.Ptr() == nil {
 		return nil
-	} else if v.IsA(widgetType) {
+	} else if !v.IsA(widgetType) {
 		glib.InvalidTypePanic(widgetType, v)
 	}
 	return (*C.GtkWidget)(v.Ptr())
