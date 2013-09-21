@@ -922,7 +922,6 @@ func valueSlice(n_values int, values *C.GValue) (slice []C.GValue) {
 
 type Variant struct {
 	ptr *C.GVariant
-	typ VariantType
 }
 
 type VariantType int
@@ -957,6 +956,67 @@ const (
 	VARIANT_TYPE_VARDICT
 )
 
+func (v VariantType) native() *C.GVariantType {
+	switch v {
+	case VARIANT_TYPE_BOOLEAN:
+		return C._g_variant_type_boolean()
+	case VARIANT_TYPE_BYTE:
+		return C._g_variant_type_byte()
+	case VARIANT_TYPE_INT16:
+		return C._g_variant_type_int16()
+	case VARIANT_TYPE_UINT16:
+		return C._g_variant_type_uint16()
+	case VARIANT_TYPE_INT32:
+		return C._g_variant_type_int32()
+	case VARIANT_TYPE_UINT32:
+		return C._g_variant_type_uint32()
+	case VARIANT_TYPE_INT64:
+		return C._g_variant_type_int64()
+	case VARIANT_TYPE_UINT64:
+		return C._g_variant_type_uint64()
+	case VARIANT_TYPE_HANDLE:
+		return C._g_variant_type_handle()
+	case VARIANT_TYPE_DOUBLE:
+		return C._g_variant_type_double()
+	case VARIANT_TYPE_STRING:
+		return C._g_variant_type_string()
+	case VARIANT_TYPE_OBJECT_PATH:
+		return C._g_variant_type_object_path()
+	case VARIANT_TYPE_SIGNATURE:
+		return C._g_variant_type_signature()
+	case VARIANT_TYPE_VARIANT:
+		return C._g_variant_type_variant()
+	case VARIANT_TYPE_ANY:
+		return C._g_variant_type_any()
+	case VARIANT_TYPE_BASIC:
+		return C._g_variant_type_basic()
+	case VARIANT_TYPE_MAYBE:
+		return C._g_variant_type_maybe()
+	case VARIANT_TYPE_ARRAY:
+		return C._g_variant_type_array()
+	case VARIANT_TYPE_TUPLE:
+		return C._g_variant_type_tuple()
+	case VARIANT_TYPE_UNIT:
+		return C._g_variant_type_unit()
+	case VARIANT_TYPE_DICT_ENTRY:
+		return C._g_variant_type_dict_entry()
+	case VARIANT_TYPE_DICTIONARY:
+		return C._g_variant_type_dictionary()
+	case VARIANT_TYPE_STRING_ARRAY:
+		return C._g_variant_type_string_array()
+	case VARIANT_TYPE_OBJECT_PATH_ARRAY:
+		return C._g_variant_type_object_path_array()
+	case VARIANT_TYPE_BYTESTRING:
+		return C._g_variant_type_bytestring()
+	case VARIANT_TYPE_BYTESTRING_ARRAY:
+		return C._g_variant_type_bytestring_array()
+	case VARIANT_TYPE_VARDICT:
+		return C._g_variant_type_vardict()
+	default:
+		return nil
+	}
+}
+
 // special Variant types
 type ObjectPath string
 
@@ -974,59 +1034,46 @@ func (v Signature) IsSignature() bool {
 	return gobool(C.g_variant_is_signature((*C.gchar)(cstr)))
 }
 
+type Handle int32
+
 // VariantNew() is a wrapper around the various g_variant_new_*() functions.
 func VariantNew(val interface{}) (*Variant, error) {
-	var (
-		c *C.GVariant
-		typ VariantType
-	)
+	var c *C.GVariant
 	switch t := val.(type) {
 	case bool:
 		c = C.g_variant_new_boolean(gbool(t))
-		typ = VARIANT_TYPE_BOOLEAN
 	case byte:
 		c = C.g_variant_new_byte(C.guchar(t))
-		typ = VARIANT_TYPE_BYTE
 	case int16:
 		c = C.g_variant_new_int16(C.gint16(t))
-		typ = VARIANT_TYPE_INT16
 	case uint16:
 		c = C.g_variant_new_uint16(C.guint16(t))
-		typ = VARIANT_TYPE_UINT16
 	case int32:
 		c = C.g_variant_new_int32(C.gint32(t))
-		typ = VARIANT_TYPE_INT32
 	case uint32:
 		c = C.g_variant_new_uint32(C.guint32(t))
-		typ = VARIANT_TYPE_UINT32
 	case int64:
 		c = C.g_variant_new_int64(C.gint64(t))
-		typ = VARIANT_TYPE_INT64
 	case uint64:
 		c = C.g_variant_new_uint64(C.guint64(t))
-		typ = VARIANT_TYPE_UINT64
-	// TODO: handle
+	case Handle:
+		c = C.g_variant_new_handle(C.gint32(t))
 	case float64:
 		c = C.g_variant_new_double(C.gdouble(t))
-		typ = VARIANT_TYPE_DOUBLE
 	case string:
 		cstr := C.CString(t)
 		defer C.free(unsafe.Pointer(cstr))
 		c = C.g_variant_new_string((*C.gchar)(cstr))
-		typ = VARIANT_TYPE_STRING
 	case ObjectPath:
 		cstr := C.CString(string(t))
 		defer C.free(unsafe.Pointer(cstr))
 		c = C.g_variant_new_object_path((*C.gchar)(cstr))
-		typ = VARIANT_TYPE_OBJECT_PATH
 	case Signature:
 		cstr := C.CString(string(t))
 		defer C.free(unsafe.Pointer(cstr))
 		c = C.g_variant_new_signature((*C.gchar)(cstr))
-		typ = VARIANT_TYPE_SIGNATURE
 	case *Variant:
 		c = C.g_variant_new_variant(t.ptr)
-		typ = VARIANT_TYPE_VARIANT
 	case []string:
 		length := len(t)
 		strv := make([]*C.gchar, length)
@@ -1036,7 +1083,6 @@ func VariantNew(val interface{}) (*Variant, error) {
 			strv[i] = (*C.gchar)(cstr)
 		}
 		c = C.g_variant_new_strv((**C.gchar)(unsafe.Pointer(&strv[0])), C.gssize(length))
-		typ = VARIANT_TYPE_STRING_ARRAY
 	case []ObjectPath:
 		length := len(t)
 		strv := make([]*C.gchar, length)
@@ -1046,7 +1092,6 @@ func VariantNew(val interface{}) (*Variant, error) {
 			strv[i] = (*C.gchar)(cstr)
 		}
 		c = C.g_variant_new_objv((**C.gchar)(unsafe.Pointer(&strv[0])), C.gssize(length))
-		typ = VARIANT_TYPE_OBJECT_PATH_ARRAY
 	case []byte:
 		// TODO: test this to verify that it works
 		length := len(t)
@@ -1056,7 +1101,6 @@ func VariantNew(val interface{}) (*Variant, error) {
 		}
 		bytestring[length] = C.gchar(0)
 		c = C.g_variant_new_bytestring((*C.gchar)(unsafe.Pointer(&bytestring[0])))
-		typ = VARIANT_TYPE_BYTESTRING
 	case [][]byte:
 		// TODO: test this to verify that it works
 		n_strings := len(t)
@@ -1071,25 +1115,119 @@ func VariantNew(val interface{}) (*Variant, error) {
 			bytestrings[i] = bytestring
 		}
 		c = C.g_variant_new_bytestring_array((**C.gchar)(unsafe.Pointer(&bytestrings[0])), C.gssize(n_strings))
-		typ = VARIANT_TYPE_BYTESTRING_ARRAY
 	default:
 		return nil, fmt.Errorf("unexpected variant type: %v", val)
 	}
-	v := &Variant{c, typ}
+	v := &Variant{c}
 	runtime.SetFinalizer(v, (*Variant).Unref)
 	return v, nil
 }
 
-// ???: use one Get() method, or implement individual ones for each type?
-// Maybe use this one as the "safe" version, and have other versions panic
-// if the type is wrong.
-func (v *Variant) Get() (interface{}, error) {
-	switch v.typ {
-	case VARIANT_TYPE_BOOLEAN:
-		return gobool(C.g_variant_get_boolean(v.ptr)), nil
-	default:
-		return nil, fmt.Errorf("tried to get invalid value from variant: %v", v.typ)
+func VariantNewMaybe(typ VariantType) *Variant {
+	return &Variant{C.g_variant_new_maybe(typ.native(), nil)}
+}
+
+func VariantNewArray(typ VariantType) *Variant {
+	return &Variant{C.g_variant_new_array(typ.native(), nil, 0)}
+}
+
+func VariantArray(children ...*Variant) *Variant {
+	n_children := len(children)
+	c_values := make([]*C.GVariant, n_children)
+	for i, child := range children {
+		c_values[i] = child.ptr
 	}
+	return &Variant{C.g_variant_new_array(
+		nil,
+		(**C.GVariant)(unsafe.Pointer(&c_values[0])),
+		C.gsize(n_children),
+	)}
+}
+
+func VariantTuple(children ...*Variant) *Variant {
+	n_children := len(children)
+	c_values := make([]*C.GVariant, n_children)
+	for i, child := range children {
+		c_values[i] = child.ptr
+	}
+	return &Variant{C.g_variant_new_tuple(
+		(**C.GVariant)(unsafe.Pointer(&c_values[0])),
+		C.gsize(n_children),
+	)}
+}
+
+func VariantDictEntry(key, value *Variant) *Variant {
+	return &Variant{C.g_variant_new_dict_entry(key.ptr, value.ptr)}
+}
+
+func (v *Variant) AsMaybe() *Variant {
+	return &Variant{C.g_variant_new_maybe(nil, v.ptr)}
+}
+
+func (v *Variant) NChildren() uint {
+	return uint(C.g_variant_n_children(v.ptr))
+}
+
+func (v *Variant) ChildValue(i uint) *Variant {
+	child := &Variant{C.g_variant_get_child_value(v.ptr, C.gsize(i))}
+	runtime.SetFinalizer(child, (*Variant).Unref)
+	return child
+}
+
+func (v *Variant) Boolean() bool {
+	return gobool(C.g_variant_get_boolean(v.ptr))
+}
+
+func (v *Variant) Byte() byte {
+	return byte(C.g_variant_get_byte(v.ptr))
+}
+
+func (v *Variant) Int16() int16 {
+	return int16(C.g_variant_get_int16(v.ptr))
+}
+
+func (v *Variant) Uint16() uint16 {
+	return uint16(C.g_variant_get_uint16(v.ptr))
+}
+
+func (v *Variant) Int32() int32 {
+	return int32(C.g_variant_get_int32(v.ptr))
+}
+
+func (v *Variant) Uint32() uint32 {
+	return uint32(C.g_variant_get_uint32(v.ptr))
+}
+
+func (v *Variant) Int64() int64 {
+	return int64(C.g_variant_get_int64(v.ptr))
+}
+
+func (v *Variant) Uint64() uint64 {
+	return uint64(C.g_variant_get_uint64(v.ptr))
+}
+
+func (v *Variant) Handle() Handle {
+	return Handle(C.g_variant_get_handle(v.ptr))
+}
+
+func (v *Variant) Double() float64 {
+	return float64(C.g_variant_get_double(v.ptr))
+}
+
+func (v *Variant) String() string {
+	return C.GoString((*C.char)(C.g_variant_get_string(v.ptr, nil)))
+}
+
+func (v *Variant) Variant() *Variant {
+	return &Variant{C.g_variant_get_variant(v.ptr)}
+}
+
+func (v *Variant) Maybe() *Variant {
+	c := C.g_variant_get_maybe(v.ptr)
+	if c == nil {
+		return nil
+	}
+	return &Variant{c}
 }
 
 func (v *Variant) RefSink() {

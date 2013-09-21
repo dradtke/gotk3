@@ -91,8 +91,176 @@ _g_value_fundamental(GType type)
 
 extern void goMarshal(GClosure *closure, GValue *return_value, guint n_param_values, GValue *param_values, gpointer invocation_hint, gpointer marshal_data);
 
-static GClosure *_g_closure_new() {
+static GClosure *
+_g_closure_new()
+{
 	GClosure *closure = g_closure_new_simple(sizeof(GClosure), NULL);
 	g_closure_set_marshal(closure, (GClosureMarshal)(goMarshal));
 	return closure;
+}
+
+/*
+ * Variant types
+ */
+
+static const GVariantType *
+_g_variant_type_boolean()
+{
+	return (G_VARIANT_TYPE_BOOLEAN);
+}
+
+static const GVariantType *
+_g_variant_type_byte()
+{
+	return (G_VARIANT_TYPE_BYTE);
+}
+
+static const GVariantType *
+_g_variant_type_int16()
+{
+	return (G_VARIANT_TYPE_INT16);
+}
+
+static const GVariantType *
+_g_variant_type_uint16()
+{
+	return (G_VARIANT_TYPE_UINT16);
+}
+
+static const GVariantType *
+_g_variant_type_int32()
+{
+	return (G_VARIANT_TYPE_INT32);
+}
+
+static const GVariantType *
+_g_variant_type_uint32()
+{
+	return (G_VARIANT_TYPE_UINT32);
+}
+
+static const GVariantType *
+_g_variant_type_int64()
+{
+	return (G_VARIANT_TYPE_INT64);
+}
+
+static const GVariantType *
+_g_variant_type_uint64()
+{
+	return (G_VARIANT_TYPE_UINT64);
+}
+
+static const GVariantType *
+_g_variant_type_handle()
+{
+	return (G_VARIANT_TYPE_HANDLE);
+}
+
+static const GVariantType *
+_g_variant_type_double()
+{
+	return (G_VARIANT_TYPE_DOUBLE);
+}
+
+static const GVariantType *
+_g_variant_type_string()
+{
+	return (G_VARIANT_TYPE_STRING);
+}
+
+static const GVariantType *
+_g_variant_type_object_path()
+{
+	return (G_VARIANT_TYPE_OBJECT_PATH);
+}
+
+static const GVariantType *
+_g_variant_type_signature()
+{
+	return (G_VARIANT_TYPE_SIGNATURE);
+}
+
+static const GVariantType *
+_g_variant_type_variant()
+{
+	return (G_VARIANT_TYPE_VARIANT);
+}
+
+static const GVariantType *
+_g_variant_type_any()
+{
+	return (G_VARIANT_TYPE_ANY);
+}
+
+static const GVariantType *
+_g_variant_type_basic()
+{
+	return (G_VARIANT_TYPE_BASIC);
+}
+
+static const GVariantType *
+_g_variant_type_maybe()
+{
+	return (G_VARIANT_TYPE_MAYBE);
+}
+
+static const GVariantType *
+_g_variant_type_array()
+{
+	return (G_VARIANT_TYPE_ARRAY);
+}
+
+static const GVariantType *
+_g_variant_type_tuple()
+{
+	return (G_VARIANT_TYPE_TUPLE);
+}
+
+static const GVariantType *
+_g_variant_type_unit()
+{
+	return (G_VARIANT_TYPE_UNIT);
+}
+
+static const GVariantType *
+_g_variant_type_dict_entry()
+{
+	return (G_VARIANT_TYPE_DICT_ENTRY);
+}
+
+static const GVariantType *
+_g_variant_type_dictionary()
+{
+	return (G_VARIANT_TYPE_DICTIONARY);
+}
+
+static const GVariantType *
+_g_variant_type_string_array()
+{
+	return (G_VARIANT_TYPE_STRING_ARRAY);
+}
+
+static const GVariantType *
+_g_variant_type_object_path_array()
+{
+	return (G_VARIANT_TYPE_OBJECT_PATH_ARRAY);
+}
+
+static const GVariantType *
+_g_variant_type_bytestring()
+{
+	return (G_VARIANT_TYPE_BYTESTRING);
+}
+
+static const GVariantType *
+_g_variant_type_bytestring_array()
+{
+	return (G_VARIANT_TYPE_BYTESTRING_ARRAY);
+}
+
+static const GVariantType *
+_g_variant_type_vardict()
+{
+	return (G_VARIANT_TYPE_VARDICT);
 }
