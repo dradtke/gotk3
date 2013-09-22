@@ -356,6 +356,15 @@ func (v *Object) IsA(typ Type) bool {
 	return gobool(C.g_type_is_a(C.GType(v.Type()), C.GType(typ)))
 }
 
+// Typecheck() checks if the object is a valid instance of the
+// provided type, and if not, it returns an error.
+func (v *Object) Typecheck(typ Type) error {
+	if !v.IsA(typ) {
+		return invalidTypeError(typ, v)
+	}
+	return nil
+}
+
 func (v *Object) toGObject() *C.GObject {
 	if v == nil {
 		return nil
@@ -1247,19 +1256,15 @@ func (v *Variant) Unref() {
  */
 
 
-// InvalidTypePanic() is an internal utility method for reporting
-// typecasting errors. It's exported for visibility to other gotk3
-// packages and shouldn't be called directly by users.
-func InvalidTypePanic(expected Type, got IObject) {
+func invalidTypeError(expected Type, got IObject) error {
 	pc1, file, line, _ := runtime.Caller(3)
 	pc2, _, _, _ := runtime.Caller(2)
-	fmt.Fprintf(os.Stderr, "%s: %s: line %d: tried to call function '%s' on invalid type. " +
-		"Expected %s, but received a %s.\n",
+	return fmt.Errorf("%s: %s: line %d: tried to call function '%s' on invalid type. " +
+		"%s is not a(n) %n.\n",
 		file,
 		runtime.FuncForPC(pc1).Name(),
 		line,
 		runtime.FuncForPC(pc2).Name(),
-		expected.Name(),
-		got.ToObject().Type().Name())
-	os.Exit(1)
+		got.ToObject().Type().Name(),
+		expected.Name())
 }

@@ -57,6 +57,7 @@ import (
 	"fmt"
 	"github.com/dradtke/gotk3/gdk"
 	"github.com/dradtke/gotk3/glib"
+	"os"
 	"runtime"
 	"unsafe"
 )
@@ -477,10 +478,19 @@ type Adjustment struct {
 	glib.InitiallyUnowned
 }
 
+var adjustmentType = glib.Type(C.gtk_adjustment_get_type())
+
+func GetAdjustmentType() glib.Type {
+	return adjustmentType
+}
+
 // Native() returns a pointer to the underlying GtkAdjustment.
 func (v *Adjustment) Native() *C.GtkAdjustment {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(adjustmentType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkAdjustment)(v.Ptr())
 }
@@ -498,10 +508,19 @@ type Bin struct {
 	Container
 }
 
+var binType = glib.Type(C.gtk_bin_get_type())
+
+func GetBinType() glib.Type {
+	return binType
+}
+
 // Native() returns a pointer to the underlying GtkBin.
 func (v *Bin) Native() *C.GtkBin {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(binType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkBin)(v.Ptr())
 }
@@ -533,16 +552,22 @@ type Buildable struct {
 	ptr unsafe.Pointer
 }
 
-func (b *Buildable) Native() *C.GtkBuildable {
-	if b == nil || b.ptr == nil {
+var buildableType = glib.Type(C.gtk_buildable_get_type())
+
+func GetBuildableType() glib.Type {
+	return buildableType
+}
+
+func (v *Buildable) Native() *C.GtkBuildable {
+	if v == nil {
 		fmt.Println("nil object, not getting native buildable")
 		return nil
 	}
-	return (*C.GtkBuildable)(b.ptr)
+	return (*C.GtkBuildable)(v.ptr)
 }
 
-func (b *Buildable) BuildableName() string {
-	return C.GoString((*C.char)(C.gtk_buildable_get_name(b.Native())))
+func (v *Buildable) BuildableName() string {
+	return C.GoString((*C.char)(C.gtk_buildable_get_name(v.Native())))
 }
 
 /*
@@ -554,10 +579,19 @@ type Builder struct {
 	*glib.Object
 }
 
+var builderType = glib.Type(C.gtk_builder_get_type())
+
+func GetBuilderType() glib.Type {
+	return glib.Type(builderType)
+}
+
 // Native() returns a pointer to the underlying GtkBuilder.
 func (v *Builder) Native() *C.GtkBuilder {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(builderType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkBuilder)(v.Ptr())
 }
@@ -653,10 +687,19 @@ type Button struct {
 	Bin
 }
 
+var buttonType = glib.Type(C.gtk_button_get_type())
+
+func GetButtonType() glib.Type {
+	return glib.Type(buttonType)
+}
+
 // Native() returns a pointer to the underlying GtkButton.
 func (v *Button) Native() *C.GtkButton {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(buttonType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkButton)(v.Ptr())
 }
@@ -864,10 +907,19 @@ type Box struct {
 	Container
 }
 
+var boxType = glib.Type(C.gtk_box_get_type())
+
+func GetBoxType() glib.Type {
+	return glib.Type(boxType)
+}
+
 // Native() returns a pointer to the underlying GtkBox.
 func (v *Box) Native() *C.GtkBox {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(boxType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkBox)(v.Ptr())
 }
@@ -955,6 +1007,12 @@ type CellLayout struct {
 	*glib.Object
 }
 
+var cellLayoutType = glib.Type(C.gtk_cell_layout_get_type())
+
+func GetCellLayoutType() glib.Type {
+	return glib.Type(cellLayoutType)
+}
+
 // ICellLayout is an interface type implemented by all structs
 // embedding a CellLayout.  It is meant to be used as an argument type
 // for wrapper functions that wrap around a C GTK function taking a
@@ -965,8 +1023,11 @@ type ICellLayout interface {
 
 // Native() returns a pointer to the underlying GObject as a GtkCellLayout.
 func (v *CellLayout) Native() *C.GtkCellLayout {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(cellLayoutType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkCellLayout)(v.Ptr())
 }
@@ -1005,6 +1066,12 @@ type CellRenderer struct {
 	glib.InitiallyUnowned
 }
 
+var cellRendererType = glib.Type(C.gtk_cell_renderer_get_type())
+
+func GetCellRendererType() glib.Type {
+	return glib.Type(cellRendererType)
+}
+
 // ICellRenderer is an interface type implemented by all structs
 // embedding a CellRenderer.  It is meant to be used as an argument type
 // for wrapper functions that wrap around a C GTK function taking a
@@ -1015,8 +1082,11 @@ type ICellRenderer interface {
 
 // Native() returns a pointer to the underlying GtkCellRenderer.
 func (v *CellRenderer) Native() *C.GtkCellRenderer {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(cellRendererType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkCellRenderer)(v.Ptr())
 }
@@ -1041,10 +1111,19 @@ type CellRendererText struct {
 	CellRenderer
 }
 
+var cellRendererTextType = glib.Type(C.gtk_cell_renderer_text_get_type())
+
+func GetCellRendererTextType() glib.Type {
+	return glib.Type(cellRendererTextType)
+}
+
 // Native() returns a pointer to the underlying GtkCellRendererText.
 func (v *CellRendererText) Native() *C.GtkCellRendererText {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(cellRendererTextType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkCellRendererText)(v.Ptr())
 }
@@ -1082,10 +1161,19 @@ type Clipboard struct {
 	*glib.Object
 }
 
+var clipboardType = glib.Type(C.gtk_clipboard_get_type())
+
+func GetClipboardType() glib.Type {
+	return glib.Type(clipboardType)
+}
+
 // Native() returns a pointer to the underlying GtkClipboard.
 func (v *Clipboard) Native() *C.GtkClipboard {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(clipboardType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkClipboard)(v.Ptr())
 }
@@ -1140,10 +1228,19 @@ type ComboBox struct {
 	CellLayout
 }
 
+var comboBoxType = glib.Type(C.gtk_combo_box_get_type())
+
+func GetComboBoxType() glib.Type {
+	return glib.Type(comboBoxType)
+}
+
 // Native() returns a pointer to the underlying GtkComboBox.
 func (v *ComboBox) Native() *C.GtkComboBox {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(comboBoxType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkComboBox)(v.Ptr())
 }
@@ -1220,10 +1317,19 @@ type Container struct {
 	Widget
 }
 
+var containerType = glib.Type(C.gtk_container_get_type())
+
+func GetContainerType() glib.Type {
+	return glib.Type(containerType)
+}
+
 // Native() returns a pointer to the underlying GtkContainer.
 func (v *Container) Native() *C.GtkContainer {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(containerType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkContainer)(v.Ptr())
 }
@@ -1252,10 +1358,19 @@ type Dialog struct {
 	Window
 }
 
+var dialogType = glib.Type(C.gtk_dialog_get_type())
+
+func GetDialogType() glib.Type {
+	return glib.Type(dialogType)
+}
+
 // Native() returns a pointer to the underlying GtkDialog.
 func (v *Dialog) Native() *C.GtkDialog {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(dialogType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkDialog)(v.Ptr())
 }
@@ -1393,10 +1508,19 @@ type Entry struct {
 	Widget
 }
 
+var entryType = glib.Type(C.gtk_entry_get_type())
+
+func GetEntryType() glib.Type {
+	return glib.Type(entryType)
+}
+
 // Native() returns a pointer to the underlying GtkEntry.
 func (v *Entry) Native() *C.GtkEntry {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(entryType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkEntry)(v.Ptr())
 }
@@ -1894,10 +2018,19 @@ type EntryBuffer struct {
 	*glib.Object
 }
 
+var entryBufferType = glib.Type(C.gtk_entry_buffer_get_type())
+
+func GetEntryBufferType() glib.Type {
+	return glib.Type(entryBufferType)
+}
+
 // Native() returns a pointer to the underlying GtkEntryBuffer.
 func (v *EntryBuffer) Native() *C.GtkEntryBuffer {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(entryBufferType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkEntryBuffer)(v.Ptr())
 }
@@ -2002,10 +2135,19 @@ type EntryCompletion struct {
 	*glib.Object
 }
 
+var entryCompletionType = glib.Type(C.gtk_entry_completion_get_type())
+
+func GetEntryCompletionType() glib.Type {
+	return glib.Type(entryCompletionType)
+}
+
 // Native() returns a pointer to the underlying GtkEntryCompletion.
 func (v *EntryCompletion) Native() *C.GtkEntryCompletion {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(entryCompletionType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkEntryCompletion)(v.Ptr())
 }
@@ -2023,12 +2165,18 @@ type FileChooser struct {
 	ptr unsafe.Pointer
 }
 
-func (f *FileChooser) Native() *C.GtkFileChooser {
-	if f == nil || f.ptr == nil {
+var fileChooserType = glib.Type(C.gtk_file_chooser_get_type())
+
+func GetFileChooserType() glib.Type {
+	return glib.Type(fileChooserType)
+}
+
+func (v *FileChooser) Native() *C.GtkFileChooser {
+	if v == nil {
 		fmt.Println("nil object, not getting native file chooser")
 		return nil
 	}
-	return (*C.GtkFileChooser)(f.ptr)
+	return (*C.GtkFileChooser)(v.ptr)
 }
 
 func (f *FileChooser) SetCurrentFolder(filename string) {
@@ -2057,10 +2205,19 @@ type FileChooserButton struct {
 	FileChooser
 }
 
+var fileChooserButtonType = glib.Type(C.gtk_file_chooser_button_get_type())
+
+func GetFileChooserButtonType() glib.Type {
+	return glib.Type(fileChooserButtonType)
+}
+
 // Native() returns a pointer to the underlying GtkGrid.
 func (v *FileChooserButton) Native() *C.GtkFileChooserButton {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(fileChooserButtonType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkFileChooserButton)(v.Ptr())
 }
@@ -2083,10 +2240,19 @@ type Grid struct {
 	Orientable
 }
 
+var gridType = glib.Type(C.gtk_grid_get_type())
+
+func GetGridType() glib.Type {
+	return glib.Type(gridType)
+}
+
 // Native() returns a pointer to the underlying GtkGrid.
 func (v *Grid) Native() *C.GtkGrid {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(gridType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkGrid)(v.Ptr())
 }
@@ -2212,10 +2378,19 @@ type Image struct {
 	Misc
 }
 
+var imageType = glib.Type(C.gtk_image_get_type())
+
+func GetImageType() glib.Type {
+	return glib.Type(imageType)
+}
+
 // Native() returns a pointer to the underlying GtkImage.
 func (v *Image) Native() *C.GtkImage {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(imageType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkImage)(v.Ptr())
 }
@@ -2440,10 +2615,19 @@ type ImageMenuItem struct {
 	MenuItem
 }
 
+var imageMenuItemType = glib.Type(C.gtk_image_menu_item_get_type())
+
+func GetImageMenuItemType() glib.Type {
+	return glib.Type(imageMenuItemType)
+}
+
 // Native() returns a pointer to the underlying GtkImageMenuItem.
 func (v *ImageMenuItem) Native() *C.GtkImageMenuItem {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(imageMenuItemType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkImageMenuItem)(v.Ptr())
 }
@@ -2462,10 +2646,19 @@ type Label struct {
 	Misc
 }
 
+var labelType = glib.Type(C.gtk_label_get_type())
+
+func GetLabelType() glib.Type {
+	return glib.Type(labelType)
+}
+
 // Native() returns a pointer to the underlying GtkLabel.
 func (v *Label) Native() *C.GtkLabel {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(labelType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkLabel)(v.Ptr())
 }
@@ -2588,10 +2781,19 @@ type ListStore struct {
 	TreeModel
 }
 
+var listStoreType = glib.Type(C.gtk_list_store_get_type())
+
+func GetListStoreType() glib.Type {
+	return glib.Type(listStoreType)
+}
+
 // Native() returns a pointer to the underlying GtkListStore.
 func (v *ListStore) Native() *C.GtkListStore {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(listStoreType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkListStore)(v.Ptr())
 }
@@ -2663,7 +2865,7 @@ func (v *ListStore) Set(iter *TreeIter, values map[string]interface{}) error {
 		i++
 	}
 	var (
-		cn = C.gint(n)
+		cn    = C.gint(n)
 		ccols = (*C.gint)(unsafe.Pointer(&ccolumns))
 		cvals = (*C.GValue)(unsafe.Pointer(&cvalues))
 	)
@@ -2693,8 +2895,8 @@ func (v *ListStore) InsertWithValues(position int, values map[string]interface{}
 	}
 	var (
 		citer C.GtkTreeIter
-		cpos = C.gint(position)
-		cn = C.gint(n)
+		cpos  = C.gint(position)
+		cn    = C.gint(n)
 		ccols = (*C.gint)(unsafe.Pointer(&ccolumns[0]))
 		cvals = (*C.GValue)(unsafe.Pointer(&cvalues[0]))
 	)
@@ -2758,10 +2960,19 @@ type Menu struct {
 	MenuShell
 }
 
+var menuType = glib.Type(C.gtk_menu_get_type())
+
+func GetMenuType() glib.Type {
+	return glib.Type(menuType)
+}
+
 // Native() returns a pointer to the underlying GtkMenu.
 func (v *Menu) Native() *C.GtkMenu {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(menuType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMenu)(v.Ptr())
 }
@@ -2793,10 +3004,19 @@ type MenuBar struct {
 	MenuShell
 }
 
+var menuBarType = glib.Type(C.gtk_menu_bar_get_type())
+
+func GetMenuBarType() glib.Type {
+	return glib.Type(menuBarType)
+}
+
 // Native() returns a pointer to the underlying GtkMenuBar.
 func (v *MenuBar) Native() *C.GtkMenuBar {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(menuBarType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMenuBar)(v.Ptr())
 }
@@ -2828,10 +3048,19 @@ type MenuItem struct {
 	Bin
 }
 
+var menuItemType = glib.Type(C.gtk_menu_item_get_type())
+
+func GetMenuItemType() glib.Type {
+	return glib.Type(menuItemType)
+}
+
 // Native() returns a pointer to the underlying GtkMenuItem.
 func (v *MenuItem) Native() *C.GtkMenuItem {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(menuItemType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMenuItem)(v.Ptr())
 }
@@ -2899,10 +3128,19 @@ type MenuShell struct {
 	Container
 }
 
+var menuShellType = glib.Type(C.gtk_menu_shell_get_type())
+
+func GetMenuShellType() glib.Type {
+	return glib.Type(menuShellType)
+}
+
 // Native() returns a pointer to the underlying GtkMenuShell.
 func (v *MenuShell) Native() *C.GtkMenuShell {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(menuShellType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMenuShell)(v.Ptr())
 }
@@ -2926,10 +3164,19 @@ type MessageDialog struct {
 	Dialog
 }
 
+var messageDialogType = glib.Type(C.gtk_message_dialog_get_type())
+
+func GetMessageDialogType() glib.Type {
+	return glib.Type(messageDialogType)
+}
+
 // Native() returns a pointer to the underlying GtkMessageDialog.
 func (v *MessageDialog) Native() *C.GtkMessageDialog {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(messageDialogType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMessageDialog)(v.Ptr())
 }
@@ -2969,10 +3216,19 @@ type Misc struct {
 	Widget
 }
 
+var miscType = glib.Type(C.gtk_misc_get_type())
+
+func GetMiscType() glib.Type {
+	return glib.Type(miscType)
+}
+
 // Native() returns a pointer to the underlying GtkMisc.
 func (v *Misc) Native() *C.GtkMisc {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(miscType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkMisc)(v.Ptr())
 }
@@ -2991,10 +3247,19 @@ type Notebook struct {
 	Container
 }
 
+var notebookType = glib.Type(C.gtk_notebook_get_type())
+
+func GetNotebookType() glib.Type {
+	return glib.Type(notebookType)
+}
+
 // Native() returns a pointer to the underlying GtkNotebook.
 func (v *Notebook) Native() *C.GtkNotebook {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(notebookType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkNotebook)(v.Ptr())
 }
@@ -3311,10 +3576,19 @@ type OffscreenWindow struct {
 	Bin
 }
 
+var offscreenWindowType = glib.Type(C.gtk_offscreen_window_get_type())
+
+func GetOffscreenWindowType() glib.Type {
+	return glib.Type(offscreenWindowType)
+}
+
 // Native() returns a pointer to the underlying GtkWindow.
 func (v *OffscreenWindow) Native() *C.GtkOffscreenWindow {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(offscreenWindowType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkOffscreenWindow)(v.Ptr())
 }
@@ -3333,6 +3607,12 @@ type Orientable struct {
 	*glib.Object
 }
 
+var orientableType = glib.Type(C.gtk_orientable_get_type())
+
+func GetOrientableType() glib.Type {
+	return glib.Type(orientableType)
+}
+
 // IOrientable is an interface type implemented by all structs
 // embedding an Orientable.  It is meant to be used as an argument type
 // for wrapper functions that wrap around a C GTK function taking a
@@ -3343,8 +3623,11 @@ type IOrientable interface {
 
 // Native returns a pointer to the underlying GObject as a GtkOrientable.
 func (v *Orientable) Native() *C.GtkOrientable {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(orientableType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkOrientable)(v.Ptr())
 }
@@ -3374,10 +3657,19 @@ type ProgressBar struct {
 	Widget
 }
 
+var progressBarType = glib.Type(C.gtk_progress_bar_get_type())
+
+func GetProgressBarType() glib.Type {
+	return glib.Type(progressBarType)
+}
+
 // Native() returns a pointer to the underlying GtkProgressBar.
 func (v *ProgressBar) Native() *C.GtkProgressBar {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(progressBarType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkProgressBar)(v.Ptr())
 }
@@ -3427,10 +3719,19 @@ type ScrolledWindow struct {
 	Bin
 }
 
+var scrolledWindowType = glib.Type(C.gtk_scrolled_window_get_type())
+
+func GetScrolledWindowType() glib.Type {
+	return glib.Type(scrolledWindowType)
+}
+
 // Native() returns a pointer to the underlying GtkScrolledWindow.
 func (v *ScrolledWindow) Native() *C.GtkScrolledWindow {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(scrolledWindowType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkScrolledWindow)(v.Ptr())
 }
@@ -3470,10 +3771,19 @@ type SpinButton struct {
 	Entry
 }
 
+var spinButtonType = glib.Type(C.gtk_spin_button_get_type())
+
+func GetSpinButtonType() glib.Type {
+	return glib.Type(spinButtonType)
+}
+
 // Native() returns a pointer to the underlying GtkSpinButton.
 func (v *SpinButton) Native() *C.GtkSpinButton {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(spinButtonType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkSpinButton)(v.Ptr())
 }
@@ -3544,10 +3854,19 @@ type Statusbar struct {
 	Box
 }
 
+var statusbarType = glib.Type(C.gtk_statusbar_get_type())
+
+func GetStatusbarType() glib.Type {
+	return glib.Type(statusbarType)
+}
+
 // Native() returns a pointer to the underlying GtkStatusbar
 func (v *Statusbar) Native() *C.GtkStatusbar {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(statusbarType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkStatusbar)(v.Ptr())
 }
@@ -3611,9 +3930,18 @@ type TextBuffer struct {
 	*glib.Object
 }
 
+var textBufferType = glib.Type(C.gtk_text_buffer_get_type())
+
+func GetTextBufferType() glib.Type {
+	return glib.Type(textBufferType)
+}
+
 func (v *TextBuffer) Native() *C.GtkTextBuffer {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(textBufferType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTextBuffer)(v.Ptr())
 }
@@ -3646,6 +3974,12 @@ type TextIter struct {
 	c *C.GtkTextIter
 }
 
+var textIterType = glib.Type(C.gtk_text_iter_get_type())
+
+func GetTextIterType() glib.Type {
+	return glib.Type(textIterType)
+}
+
 /*
  * GtkTextView
  */
@@ -3654,9 +3988,18 @@ type TextView struct {
 	Container
 }
 
+var textViewType = glib.Type(C.gtk_text_view_get_type())
+
+func GetTextViewType() glib.Type {
+	return glib.Type(textViewType)
+}
+
 func (v *TextView) Native() *C.GtkTextView {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(textViewType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTextView)(v.Ptr())
 }
@@ -3687,8 +4030,17 @@ type TreeIter struct {
 	GtkTreeIter C.GtkTreeIter
 }
 
+var treeIterType = glib.Type(C.gtk_tree_iter_get_type())
+
+func GetTreeIterType() glib.Type {
+	return glib.Type(treeIterType)
+}
+
 // Native() returns a pointer to the underlying GtkTreeIter.
 func (v *TreeIter) Native() *C.GtkTreeIter {
+	if v == nil {
+		return nil
+	}
 	return &v.GtkTreeIter
 }
 
@@ -3719,6 +4071,12 @@ type TreeModel struct {
 	indexMap map[string]int
 }
 
+var treeModelType = glib.Type(C.gtk_tree_model_get_type())
+
+func GetTreeModelType() glib.Type {
+	return glib.Type(treeModelType)
+}
+
 // ITreeModel is an interface type implemented by all structs
 // embedding a TreeModel.  It is meant to be used as an argument type
 // for wrapper functions that wrap around a C GTK function taking a
@@ -3730,8 +4088,11 @@ type ITreeModel interface {
 
 // Native() returns a pointer to the underlying GObject as a GtkTreeModel.
 func (v *TreeModel) Native() *C.GtkTreeModel {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(treeModelType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTreeModel)(v.Ptr())
 }
@@ -3845,6 +4206,12 @@ type TreePath struct {
 	GtkTreePath *C.GtkTreePath
 }
 
+var treePathType = glib.Type(C.gtk_tree_path_get_type())
+
+func GetTreePathType() glib.Type {
+	return glib.Type(treePathType)
+}
+
 // Native() returns a pointer to the underlying GtkTreePath.
 func (v *TreePath) Native() *C.GtkTreePath {
 	if v == nil {
@@ -3866,10 +4233,19 @@ type TreeSelection struct {
 	*glib.Object
 }
 
+var treeSelectionType = glib.Type(C.gtk_tree_selection_get_type())
+
+func GetTreeSelectionType() glib.Type {
+	return glib.Type(treeSelectionType)
+}
+
 // Native() returns a pointer to the underlying GtkTreeSelection.
 func (v *TreeSelection) Native() *C.GtkTreeSelection {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(treeSelectionType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTreeSelection)(v.Ptr())
 }
@@ -3901,10 +4277,19 @@ type TreeView struct {
 	Container
 }
 
+var treeViewType = glib.Type(C.gtk_tree_view_get_type())
+
+func GetTreeViewType() glib.Type {
+	return glib.Type(treeViewType)
+}
+
 // Native() returns a pointer to the underlying GtkTreeView.
 func (v *TreeView) Native() *C.GtkTreeView {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(treeViewType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTreeView)(v.Ptr())
 }
@@ -3986,10 +4371,19 @@ type TreeViewColumn struct {
 	glib.InitiallyUnowned
 }
 
+var treeViewColumnType = glib.Type(C.gtk_tree_view_column_get_type())
+
+func GetTreeViewColumnType() glib.Type {
+	return glib.Type(treeViewColumnType)
+}
+
 // Native() returns a pointer to the underlying GtkTreeViewColumn.
 func (v *TreeViewColumn) Native() *C.GtkTreeViewColumn {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(treeViewColumnType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkTreeViewColumn)(v.Ptr())
 }
@@ -4099,6 +4493,12 @@ type Widget struct {
 	Buildable
 }
 
+var widgetType = glib.Type(C.gtk_widget_get_type())
+
+func GetWidgetType() glib.Type {
+	return glib.Type(widgetType)
+}
+
 // IWidget is an interface type implemented by all structs
 // embedding a Widget.  It is meant to be used as an argument type
 // for wrapper functions that wrap around a C GTK function taking a
@@ -4107,14 +4507,13 @@ type IWidget interface {
 	toWidget() *C.GtkWidget
 }
 
-var widgetType = glib.Type(C.gtk_widget_get_type())
-
 // Native() returns a pointer to the underlying GtkWidget.
 func (v *Widget) Native() *C.GtkWidget {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
-	} else if !v.IsA(widgetType) {
-		glib.InvalidTypePanic(widgetType, v)
+	}
+	if warn := v.Typecheck(widgetType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkWidget)(v.Ptr())
 }
@@ -4496,6 +4895,12 @@ type Window struct {
 	Bin
 }
 
+var windowType = glib.Type(C.gtk_window_get_type())
+
+func GetWindowType() glib.Type {
+	return glib.Type(windowType)
+}
+
 // IWindow is an interface type implemented by all structs embedding a
 // Window.  It is meant to be used as an argument type for wrapper
 // functions that wrap around a C GTK function taking a GtkWindow.
@@ -4505,8 +4910,11 @@ type IWindow interface {
 
 // Native() returns a pointer to the underlying GtkWindow.
 func (v *Window) Native() *C.GtkWindow {
-	if v == nil || v.Ptr() == nil {
+	if v == nil {
 		return nil
+	}
+	if warn := v.Typecheck(windowType); warn != nil {
+		fmt.Fprintln(os.Stderr, warn)
 	}
 	return (*C.GtkWindow)(v.Ptr())
 }
